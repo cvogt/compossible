@@ -1,4 +1,4 @@
-package org.cvogt.records
+package org.cvogt.compossible
 import scala.reflect.macros.whitebox.Context
 import scala.language.experimental.macros
 import scala.language.dynamics
@@ -11,7 +11,7 @@ class select[T] extends Dynamic{
     = macro selectMacros.unionMacro[Q]
 
   def applyDynamic(key: String)
-                  (value: org.cvogt.records.&.type)
+                  (value: org.cvogt.compossible.&.type)
                   : Any
     = macro selectMacros.applyUnionMacro
 
@@ -22,7 +22,7 @@ class select[T] extends Dynamic{
 object &
 object select extends Dynamic{
   def applyDynamic(key: String)
-                  (value: org.cvogt.records.&.type)
+                  (value: org.cvogt.compossible.&.type)
                   : Any
     = macro selectMacros.applyCreateMacro
 

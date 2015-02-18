@@ -1,4 +1,4 @@
-package org.cvogt.records
+package org.cvogt.compossible
 
 import scala.reflect.macros.whitebox.Context
 import scala.language.experimental.macros

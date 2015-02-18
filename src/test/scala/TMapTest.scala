@@ -1,9 +1,9 @@
-package org.cvogt.test.records
+package org.cvogt.test.compossible
 
 import org.scalautils.TypeCheckedTripleEquals._
 import org.scalatest.FunSuite
 
-import org.cvogt.records.TMap
+import org.cvogt.compossible.TMap
 import scala.reflect.runtime.universe._
 
 class NativeTest extends FunSuite{

@@ -2,8 +2,8 @@ package org.cvogt.test.records
 
 import org.scalautils.TypeCheckedTripleEquals._
 import org.scalatest.FunSuite
-import org.cvogt.records._
-import org.cvogt.records.{Record => R}
+import org.cvogt.compossible._
+import org.cvogt.compossible.{Record => R}
 import scala.language.postfixOps
 
 class RecordTest extends FunSuite {

@@ -1,4 +1,4 @@
-package org.cvogt.records
+package org.cvogt.compossible
 
 import scala.reflect.macros.whitebox.Context
 import scala.language.experimental.macros
@@ -13,7 +13,7 @@ class RecordType[T <: (String, Any)] extends Dynamic{
     = macro RecordTypeMacros.unionMacro[Q]
 
   def applyDynamic[V](key: String)
-                  (& : org.cvogt.records.&.type)
+                  (& : org.cvogt.compossible.&.type)
                   : Any
     = macro RecordTypeMacros.applyUnionMacro[V]
 
@@ -23,7 +23,7 @@ class RecordType[T <: (String, Any)] extends Dynamic{
 
 object RecordType extends Dynamic{
   def applyDynamic[V](key: String)
-                  (& : org.cvogt.records.&.type)
+                  (& : org.cvogt.compossible.&.type)
                   : Any
     = macro RecordTypeMacros.applyCreateMacro[V]
 

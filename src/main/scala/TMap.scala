@@ -1,4 +1,4 @@
-package org.cvogt.records
+package org.cvogt.compossible
 import scala.reflect.runtime.universe._
 
 /**

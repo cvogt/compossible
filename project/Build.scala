@@ -4,9 +4,9 @@ import Keys._
 object MyBuild extends Build{
   val repoKind = SettingKey[String]("repo-kind", "Maven repository kind (\"snapshots\" or \"releases\")")
 
-  lazy val aRootProject = Project(id = "records", base = file("."),
+  lazy val aRootProject = Project(id = "compossible", base = file("."),
     settings = Seq(
-      name := "records",
+      name := "compossible",
       scalaVersion := "2.11.5",
       description := "Composable Records and type-indexed Maps for Scala",
       libraryDependencies ++= Seq(
@@ -20,15 +20,15 @@ object MyBuild extends Build{
       //scalacOptions ++= Seq("-Xprint:patmat", "-Xshow-phases"),
       testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oFD"),
       parallelExecution := false, // <- until TMap thread-safety issues are resolved
-      version := "0.1",
+      version := "0.2-SNAPSHOT",
       organizationName := "Jan Christopher Vogt",
       organization := "org.cvogt",
       scalacOptions in (Compile, doc) <++= (version,sourceDirectory in Compile,name).map((v,src,n) => Seq(
         "-doc-title", n,
         "-doc-version", v,
-        "-doc-footer", "Scala Records is developed by Jan Christopher Vogt.",
+        "-doc-footer", "Compossible is developed by Jan Christopher Vogt.",
         "-sourcepath", src.getPath, // needed for scaladoc to strip the location of the linked source path
-        "-doc-source-url", "https://github.com/cvogt/records/blob/"+v+"/src/main€{FILE_PATH}.scala",
+        "-doc-source-url", "https://github.com/cvogt/compossible/blob/"+v+"/src/main€{FILE_PATH}.scala",
         "-implicits",
         "-diagrams", // requires graphviz
         "-groups"
@@ -44,7 +44,7 @@ object MyBuild extends Build{
       pomIncludeRepository := { _ => false },
       makePomConfiguration ~= { _.copy(configurations = Some(Seq(Compile, Runtime, Optional))) },
       licenses += ("Creative Commons Attribution-ShareAlike 4.0 International", url("https://creativecommons.org/licenses/by-sa/4.0/")),
-      homepage := Some(url("http://github.com/cvogt/records")),
+      homepage := Some(url("http://github.com/cvogt/compossible")),
       startYear := Some(2015),
       pomExtra :=
         <developers>
@@ -56,8 +56,8 @@ object MyBuild extends Build{
           </developer>
         </developers>
           <scm>
-            <url>git@github.com:cvogt/records.git</url>
-            <connection>scm:git:git@github.com:cvogt/records.git</connection>
+            <url>git@github.com:cvogt/compossible.git</url>
+            <connection>scm:git:git@github.com:cvogt/compossible.git</connection>
           </scm>
     )
   )

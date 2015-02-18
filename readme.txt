@@ -1,6 +1,6 @@
-Scala Records: Extensible records and type-indexed maps
+Compossible: Extensible records and type-indexed maps.
 
-Scala Records is a new, easy to use library implementing extensible
+Compossible is a new, easy to use library implementing extensible
 records and type-indexed maps (TMaps) based on intersection types.
 Extensible records are a more modular alternative to case classes.
 Type-indexed maps are type-safe maps without the need for key names.
@@ -14,4 +14,4 @@ Sbt setup:
 
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
-libraryDependencies += "org.cvogt" %% "records" % "0.1"
+libraryDependencies += "org.cvogt" %% "compossible" % "0.2"
