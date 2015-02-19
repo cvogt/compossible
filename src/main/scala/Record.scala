@@ -20,21 +20,19 @@ object RecordCompletion{
   import scala.language.implicitConversions
   implicit def unpack[T](record: Record[T]): T = macro RecordBlackboxMacros.unpackMacro[T]  
 }
-object Record extends Dynamic{
-  def apply[V <: AnyRef](struct: V): Record[V]
-    = macro RecordBlackboxMacros.createMacro[V]
-
+trait RecordFactory extends Dynamic{
   //def applyDynamic[K <: String,V](key: K)(value: V)/*(implicit ev: IsNotStruct[V])*/: Record[AnyRef]
   //  = macro RecordWhiteboxMacros.createMacro[K]
 
-  def tuple(record: Record[_]): Product
-    = macro RecordWhiteboxMacros.tupleMacro
-
-  def fromCaseClass(obj: Product): Record[AnyRef]
+  def from(obj: Any): Record[AnyRef]
     = macro RecordWhiteboxMacros.fromCaseClassMacro
 
   def applyDynamicNamed[T <: AnyRef](method: String)(keyValues: T*): Record[AnyRef] = macro RecordWhiteboxMacros.createManyMacro
-
+}
+object RecordNamed extends RecordFactory
+object Record extends RecordFactory{
+  def apply[V <: AnyRef](struct: V): Record[V]
+    = macro RecordBlackboxMacros.createMacro[V]
 }
 
 // TODO make invariant and use implicit conversion macro freeing items from internal map
@@ -43,6 +41,11 @@ class Record[+T <: AnyRef](
   val struct: Any = null
 ) extends Dynamic{
   override def toString = "Record("+values.toString+")"
+
+  def to[T] = null
+
+  def toTuple: Product
+    = macro RecordWhiteboxMacros.tupleMacro
 
   /** Combine two records into one.
       The combined one will have the keys of both. */
@@ -114,17 +117,17 @@ trait RecordMacroHelpers extends MacroHelpers{
       println(firstTypeArg(record))
       println(showRaw(firstTypeArg(record)))
          */ 
-          collectScopes(firstTypeArg(record))
+          collection.immutable.ListMap(collectScopes(firstTypeArg(record))
           // match {
         //case typeArg@RefinedType(_,scope) if !scope.isEmpty =>
           //scope
-          .map{case s:MethodSymbol => (s.name.decodedName.toString, s.returnType)}
+          .map{case s:MethodSymbol => (s.name.decodedName.toString, s.returnType)}: _*)
         /*case typeArg =>
           splitRefinedTypes(typeArg).map(splitPair).map{
             case (ConstantType(Constant(key:String)), value) => (key, value)
           }*/
       //})
-.toMap
+
         }
 
   protected def newRecord(tpe: Tree, keyValues: Seq[Tree], n: Any = null)
@@ -306,14 +309,12 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
       c.Expr[Any](q"""new Record[(${k.tree.tpe},$v)](Map(${k.tree} -> ${c.prefix}.values(${k.tree}).asInstanceOf[$v]))""")
     }
 */
-  def tupleMacro(record: Tree)
+  def tupleMacro
     = {
       val accessors = 
-        keyValues(record)
-          .map(splitPair)
-          .map{
-            case (ConstantType(key:Constant),valueType) => 
-              lookup(record,Literal(key),valueType)
+        keyValues2(c.prefix.tree).map{
+            case (key,valueType) => 
+              lookup(c.prefix.tree,Literal(Constant(key)),valueType)
           }
       q"""(..$accessors)"""
     }

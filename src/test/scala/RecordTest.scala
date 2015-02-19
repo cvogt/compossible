@@ -5,11 +5,11 @@ import org.scalatest.FunSuite
 import org.cvogt.compossible._
 import org.cvogt.compossible.{Record => R}
 import scala.language.postfixOps
-
 //import RecordCompletion._
 //import scala.language.reflectiveCalls
 
 class RecordTest extends FunSuite {
+  val RN = RecordNamed
 
   /*object Foo{  
     implicit def unpack2[R](record: Record[R]) = new{
@@ -35,7 +35,7 @@ class RecordTest extends FunSuite {
     assert(99 === r3.age)
 
     {
-      val person = Record.named(
+      val person = RN(
         name = "Chris",
         age = 99,
         dob = new java.util.Date()
@@ -45,6 +45,17 @@ class RecordTest extends FunSuite {
       assert(person.dob === person.dob)
     };
 
+    Record.named(
+      name = "Chris",
+      age = 99,
+      dob = new java.util.Date()
+    )
+
+    Record(new{
+      def name = "Chris"
+      def age = 99
+      def dob = new java.util.Date()
+    })
 
     val person = Record(new{
       def name = "Chris"
@@ -148,15 +159,18 @@ class RecordTest extends FunSuite {
     {
       // Good Example Use Case
       case class Person(name: String, age: Int)
-      case class PersonWithDob(name: String, age: Int, dob: java.util.Date)
+      case class PersonWithDob(name: String, age: Int, dob: java.util.Date, foo: String)
       val p1 = Person("Chris",99)
-      val r = Record.fromCaseClass(p1) &
-              Record.named(dob=new java.util.Date)
-      //val p2 = PersonWithDob.tupled(Record.tuple(r))
+      val r = Record.from(p1) &
+              Record.named(dob=new java.util.Date, toTuple="test")
+      val r3 = Record.named(dob=new java.util.Date, toTuple="test")
+      assert(r3.toTuple._2 == "test")
+      val p2 = PersonWithDob.tupled(r.toTuple)
     };
 
     {
       val r = 
+        //WhiteRecord(name="Chris") With
         Record.named(name="Chris") With
         Record.named(age=99) With
         Record.named(dob=new java.util.Date)
