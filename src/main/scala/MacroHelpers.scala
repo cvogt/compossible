@@ -1,5 +1,5 @@
 package org.cvogt.compossible
-import scala.reflect.macros.whitebox.Context
+import scala.reflect.macros.blackbox.Context
 import scala.language.experimental.macros
 
 trait MacroHelpers{
@@ -9,7 +9,7 @@ trait MacroHelpers{
   protected def error(msg: String) = c.error(c.enclosingPosition, msg)
 
   protected def firstTypeArg(tree: Tree) = {
-    tree.tpe.widen.dealias.typeArgs.head
+    tree.tpe.widen.dealias.typeArgs.head.dealias
   }
   
   protected def prefixTypeArg
@@ -28,6 +28,12 @@ trait MacroHelpers{
   protected def splitPair(t: Type) = {
     val args = t.typeArgs
     (args(0),args(1))
+  }
+
+  protected def splitTreePair(t: Tree) = {
+    t match {
+      case q"($key, $value)" => (key, value)
+    }
   }
 
   protected def intersectTypes(types: Seq[Type]): Type

@@ -21,6 +21,27 @@ class RecordTest extends FunSuite {
     assert("Miguel" === r3.name)
     assert(99 === r3.age)
 
+    {
+      val person = Record(
+        name = "Chris",
+        age = 99,
+        dob = new java.util.Date()
+      )
+      assert("Chris" === person.name)
+      assert(99 === person.age)
+      assert(person.dob === person.dob)
+    };
+
+    {
+      val person = Record.structural(new{
+        def name = "Chris"
+        def age = 99
+        def dob = new java.util.Date()
+      })
+      assert("Chris" === person.name)
+      assert(99 === person.age)
+      assert(person.dob === person.dob)
+    };
 
     val person = (Record name "Chris"
                          age  99
@@ -83,11 +104,22 @@ class RecordTest extends FunSuite {
 
       //new Bar.Foo[String]().name[Int](5)
 
-      val recordType = (RecordType age [Int] &
-                                   name[String] &
-                                   dob [java.util.Date] &)
-      
-      def foo(record: recordType.Type) = record.name
+      //val recordType = (RecordType age [Int] &
+      //                             name[String] &
+      //                             dob [java.util.Date] &)
+      //type tpe = recordType.Type
+      type Tpe = {
+        def name: String
+        def age: Int
+        def dob: java.util.Date
+      }
+      def foo(record: Record[Tpe]) = record.name
+
+      def foo2(record: Record[{
+        def name: String
+        def age: Int
+        def dob: java.util.Date
+      }]) = record.age
 
       assert("Chris" === foo(person))
       assert("Chris" === foo(personWithCar))
@@ -95,7 +127,7 @@ class RecordTest extends FunSuite {
       //personWithCar.§.car(owner = "Miguel")
     };
 
-    {
+    /*{
       case class Person(name: String, age: Int, dob: java.util.Date)
       val t = Record.tuple(person)
       (t: (String, Int, java.util.Date),())
@@ -104,7 +136,7 @@ class RecordTest extends FunSuite {
       assert(r.name === "Chris")
       assert(r.age === 99)
       (r.dob,())
-    };
+    };*/
 
     {
       // Good Example Use Case
@@ -113,7 +145,7 @@ class RecordTest extends FunSuite {
       val p1 = Person("Chris",99)
       val r = Record.fromCaseClass(p1) &
               (Record dob new java.util.Date)
-      val p2 = PersonWithDob.tupled(Record.tuple(r))
+      //val p2 = PersonWithDob.tupled(Record.tuple(r))
     };
 
     {
