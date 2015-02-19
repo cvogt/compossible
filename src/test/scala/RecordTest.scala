@@ -6,23 +6,36 @@ import org.cvogt.compossible._
 import org.cvogt.compossible.{Record => R}
 import scala.language.postfixOps
 
+//import RecordCompletion._
+//import scala.language.reflectiveCalls
+
 class RecordTest extends FunSuite {
+
+  /*object Foo{  
+    implicit def unpack2[R](record: Record[R]) = new{
+      def name_= (v: Any): Record[R] = record
+      def age_= (v: Any): Record[R] = record
+      private [Foo] def name = ???//macro RecordWhiteboxMacros.lookupMacro2[K]
+    }
+  }
+  import Foo.unpack2
+  */
   test("basic") {
-    val r /*: Record[("name".type -> String)]*/
-      = Record name "Chris"
-    
+    val r: Record[{def name: String}]
+      = Record.named(name="Chris")
+
     assert("Chris" === r.name)
 
-    val r2 = r.name = "Miguel"
+    val r2 = r.copy(name = "Miguel")
     assert("Miguel" === r2.name)
 
-    val r3 = r2 & (Record age 99)
+    val r3 = r2 & Record.named(age=99)
 
     assert("Miguel" === r3.name)
     assert(99 === r3.age)
 
     {
-      val person = Record(
+      val person = Record.named(
         name = "Chris",
         age = 99,
         dob = new java.util.Date()
@@ -32,20 +45,15 @@ class RecordTest extends FunSuite {
       assert(person.dob === person.dob)
     };
 
-    {
-      val person = Record.structural(new{
-        def name = "Chris"
-        def age = 99
-        def dob = new java.util.Date()
-      })
-      assert("Chris" === person.name)
-      assert(99 === person.age)
-      assert(person.dob === person.dob)
-    };
 
-    val person = (Record name "Chris"
-                         age  99
-                         dob  new java.util.Date())
+    val person = Record(new{
+      def name = "Chris"
+      def age = 99
+      def dob = new java.util.Date()
+    })
+    assert("Chris" === person.name)
+    assert(99 === person.age)
+    assert(person.dob === person.dob)
       
     val name = person.name
     val age = person.age
@@ -54,8 +62,8 @@ class RecordTest extends FunSuite {
     (name: String, age: Int, dob: java.util.Date)
 
 
-    val car = (Record owner  "Chris"
-                      model "Mercedes")
+    val car = Record.named(owner="Chris",
+                     model="Mercedes")
 
     {
       val merged = for{
@@ -94,11 +102,10 @@ class RecordTest extends FunSuite {
 
     {
       val personWithCar =
-        (Record name "Chris"
-                age  99
-                dob  new java.util.Date()
-                car (Record owner  "Chris"
-                            model "Mercedes"))
+        Record.named(name="Chris",
+                age =99,
+                dob =new java.util.Date(),
+                car =Record.named(owner="Chris",model="Mercedes"))
 
       assert("Chris" === personWithCar.car.owner)
 
@@ -144,15 +151,15 @@ class RecordTest extends FunSuite {
       case class PersonWithDob(name: String, age: Int, dob: java.util.Date)
       val p1 = Person("Chris",99)
       val r = Record.fromCaseClass(p1) &
-              (Record dob new java.util.Date)
+              Record.named(dob=new java.util.Date)
       //val p2 = PersonWithDob.tupled(Record.tuple(r))
     };
 
     {
       val r = 
-        (Record name "Chris") &
-        (Record age  99)      &
-        (Record dob  new java.util.Date())
+        Record.named(name="Chris") With
+        Record.named(age=99) With
+        Record.named(dob=new java.util.Date)
       
       val name = r.name
       val age = r.age
@@ -166,7 +173,7 @@ class RecordTest extends FunSuite {
       assert("Chris" === r.name)
       assert(99 === r.age)
 
-      val r2 = (r.name = "Miguel").age = 98
+      val r2 = r.copy(name = "Miguel").copy(age = 98)
       assert("Miguel" === r2.name)
       assert(98 === r2.age)
 

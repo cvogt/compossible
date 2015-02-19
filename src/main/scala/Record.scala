@@ -15,13 +15,17 @@ class IsNotStructMacros(c: BlackboxContext){
 }
 */
 // Extensible records for Scala based on intersection types
-
+object RecordCompletion{
+  //def updateDynamic[K <: String](key: K)(value:Any): Any = macro createMacro2[K]
+  import scala.language.implicitConversions
+  implicit def unpack[T](record: Record[T]): T = macro RecordBlackboxMacros.unpackMacro[T]  
+}
 object Record extends Dynamic{
-  def structural[V <: AnyRef](struct: V): Record[V]
+  def apply[V <: AnyRef](struct: V): Record[V]
     = macro RecordBlackboxMacros.createMacro[V]
 
-  def applyDynamic[K <: String,V](key: K)(value: V)/*(implicit ev: IsNotStruct[V])*/: Record[AnyRef]
-    = macro RecordWhiteboxMacros.createMacro[K]
+  //def applyDynamic[K <: String,V](key: K)(value: V)/*(implicit ev: IsNotStruct[V])*/: Record[AnyRef]
+  //  = macro RecordWhiteboxMacros.createMacro[K]
 
   def tuple(record: Record[_]): Product
     = macro RecordWhiteboxMacros.tupleMacro
@@ -31,7 +35,6 @@ object Record extends Dynamic{
 
   def applyDynamicNamed[T <: AnyRef](method: String)(keyValues: T*): Record[AnyRef] = macro RecordWhiteboxMacros.createManyMacro
 
-  //def updateDynamic[K <: String](key: K)(value:Any): Any = macro createMacro2[K]
 }
 
 // TODO make invariant and use implicit conversion macro freeing items from internal map
@@ -46,19 +49,23 @@ class Record[+T <: AnyRef](
   def &[O <: AnyRef](other: Record[O])
     = new Record[T with O](values ++ other.values)
 
+  def With[O <: AnyRef](other: Record[O])
+    = new Record[T with O](values ++ other.values)
+
   def selectDynamic[K <: String](key: K): Any
     = macro RecordWhiteboxMacros.lookupMacro[K]
 
   def apply[K <: String](select: select[K]): Record[AnyRef]
     = macro RecordWhiteboxMacros.selectMacro[K]
 
-  def updateDynamic[K <: String](key: K)(value:Any): Record[T]
-    = new Record[T](values ++ Map(key -> value))
+  //def updateDynamic[K <: String](key: K)(value:Any): Record[T]
+  //  = new Record[T](values ++ Map(key -> value))
 
   def applyDynamic[K <: String](key: K)(value:Any): Record[AnyRef]
     = macro RecordWhiteboxMacros.appendFieldMacro[K]
 
-  //def applyDynamicNamed[K <: String](key: K)(value:Any): Record[_] = macro RecordWhiteboxMacros.
+  // TODO: make typesafe with macros
+  def applyDynamicNamed(method: String)(keyValues: (String, Any)*): Record[T] = macro RecordBlackboxMacros.copyMacro[T]
 /*
   def selectDynamic[K <: String](k: K): Any
     = macro Record.extractMacro[K]
@@ -165,10 +172,34 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
   //  = createRecord((Literal(Constant("apply")), struct))
 
   def createMacro[K](struct: Tree)
-    = createRecord((Literal(Constant("apply")), struct))
+    = {
+      println(showRaw(struct))
+      createRecord((Literal(Constant("apply")), struct))
+    }
+
+  def unpackMacro[T:c.WeakTypeTag](record: Tree): Tree = {
+    //q"org.cvogt.compossible.RecordLookup($record)"
+    val fields = keyValues2(record).map{
+      case(key, tpe) => q"def ${TermName(key)} = $record.values($key).asInstanceOf[$tpe]"
+    }
+    q"new{..$fields}"
+  }
+
+  def copyMacro[T:c.WeakTypeTag](method: Tree)(keyValues: Tree*) = {
+    method match { case Literal(Constant("copy")) => }
+    //val values == keyValues.map{(kfoldLeft(q"", $keyValues.toMap
+    q"""new Record[${c.weakTypeTag[T]}](
+      values=${c.prefix}.values ++ Map(..$keyValues),
+      struct=${c.prefix}.struct
+    )"""
+  }
+}
+case class RecordLookup(r: Record[_ <: AnyRef]) extends Dynamic{
+  def selectDynamic[T](key: String) = r.values(key).asInstanceOf[T]
 }
 class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
   import c.universe._
+
 
   def createMacro[K](key: Tree)(value: Tree)
     = createRecord((key, value))
