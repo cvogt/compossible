@@ -53,7 +53,7 @@ object Record extends RecordFactory{
       = new Record[T with O](values ++ other.values)
 
     def apply[K <: String](select: select[K]): Record[AnyRef]
-      = macro RecordWhiteboxMacros.select[K]
+      = macro RecordWhiteboxMacros.selectWithSelector[K]
 
     /** select columns */
     // def map[E](f: T => E)
@@ -131,6 +131,23 @@ trait RecordMacroHelpers extends MacroHelpers{
     }
     newRecord( tq"AnyRef{..$defs}", q"Map(..$data)" )
   }
+
+  def select[K:c.WeakTypeTag]
+    = {
+      val allTypesByKey      = extractTypesByKey(firstTypeArg(prefixTree))
+      val selectedTypesByKey = extractTypesByKey(tpe[K])
+      
+      selectedTypesByKey.foreach{
+        case (key, tpe) if tpe == allTypesByKey(key) =>
+      }
+      
+      val selectedKeys = selectedTypesByKey.keys.toSeq
+
+      val defs   = selectedKeys zip selectedKeys.map(allTypesByKey) map defTree.tupled
+      val values = selectedKeys map (key => (key,q"$prefixTree.values($key)")) map pairTree.tupled
+
+      newRecord( tq"AnyRef{..$defs}", q"Map(..$values)" )
+    }
 }
 class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
   import c.universe._
@@ -163,23 +180,6 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
     newRecord(typeTree[T], q"$prefixTree.values ++ Map(..$keyValues)")
   }
 
-  def select[K:c.WeakTypeTag]
-    = {
-      val allTypesByKey      = extractTypesByKey(firstTypeArg(prefixTree))
-      val selectedTypesByKey = extractTypesByKey(tpe[K])
-      
-      selectedTypesByKey.foreach{
-        case (key, tpe) if tpe == allTypesByKey(key) =>
-      }
-      
-      val selectedKeys = selectedTypesByKey.keys.toSeq
-
-      val defs   = selectedKeys zip selectedKeys.map(allTypesByKey) map defTree.tupled
-      val values = selectedKeys map (key => (key,q"$prefixTree.values($key)")) map pairTree.tupled
-
-      newRecord( tq"AnyRef{..$defs}", q"Map(..$values)" )
-    }
-
   def to[K:c.WeakTypeTag] = {
     val typesByKey = extractTypesByKey(firstTypeArg(prefixTree))
 
@@ -199,28 +199,43 @@ case class RecordLookup(r: Record[_ <: AnyRef]) extends Dynamic{
 class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
   import c.universe._
 
+  def selectWithSelector[K <: String:c.WeakTypeTag](select: Tree) = {
+      val selectedTypes = splitRefinedTypes(tpe[K]).map{
+        case ConstantType(Constant(key: String)) => key
+      }
+      println(selectedTypes)
+
+      val allTypesByKey = extractTypesByKey(firstTypeArg(prefixTree))
+      val defs = selectedTypes zip selectedTypes.map(allTypesByKey) map defTree.tupled
+      val values = selectedTypes.map{
+        key => q"$key -> ${c.prefix}.values($key)"
+      }
+      newRecord( tq"AnyRef{..$defs}", q"Map(..$values)" )
+    }
+
+  def select2[K:c.WeakTypeTag]
+    = {
+      val allTypesByKey      = extractTypesByKey(firstTypeArg(prefixTree))
+      val selectedTypesByKey = extractTypesByKey(tpe[K])
+      
+      selectedTypesByKey.foreach{
+        case (key, tpe) if tpe == allTypesByKey(key) =>
+      }
+      
+      val selectedKeys = selectedTypesByKey.keys.toSeq
+
+      val defs   = selectedKeys zip selectedKeys.map(allTypesByKey) map defTree.tupled
+      val values = selectedKeys map (key => (key,q"$prefixTree.values($key)")) map pairTree.tupled
+
+      newRecord( tq"AnyRef{..$defs}", q"Map(..$values)" )
+    }
+
   def applyDynamicNamed(method: Tree)(keysValues: Tree*)
     = createRecord(
         keysValues.map(splitTreePair).map{
           case (keyTree, value) => (constantString(keyTree), value)
         }
       )
-
-  def select[K <: String:c.WeakTypeTag](select: Tree) = {
-      val selectedTypes = splitRefinedTypes(tpe[K]).map{
-        case ConstantType(Constant(key: String)) => key
-      }
-      println(selectedTypes)
-
-      val tbk = extractTypesByKey(firstTypeArg(prefixTree))
-      val defs = selectedTypes zip selectedTypes.map(tbk) map {
-        case (key, tpe) => q"def ${TermName(key)}: ${tpe}"
-      }
-      val values = selectedTypes.map{
-        key => q"$key -> ${c.prefix}.values($key)"
-      }
-      newRecord( tq"AnyRef{..$defs}", q"Map(..$values)" )
-    }
 
 
   def appendField[K <: String:c.WeakTypeTag](key: Tree)(value: Tree) = {
