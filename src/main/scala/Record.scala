@@ -1,5 +1,6 @@
 package org.cvogt.compossible
 
+import collection.immutable.ListMap
 import scala.language.experimental.macros
 import scala.language.dynamics
 import scala.reflect.macros.whitebox.{Context => WhiteboxContext}
@@ -30,6 +31,33 @@ object RecordNamed extends RecordFactory
 object Record extends RecordFactory{
   def apply[V <: AnyRef](struct: V): Record[V]
     = macro RecordBlackboxMacros.createMacro[V]
+
+  implicit class RecordMethods[T <: AnyRef](val record: Record[T]){
+    val values = record.values
+    /** [whitebox] Convert Record into a tuple */
+    def toTuple: Product
+      = macro RecordWhiteboxMacros.tupleMacro    
+
+    /** like structural upcasting but removes the values of the lost fields from memory */
+    def select[S >: T <: AnyRef]: Record[S] = macro RecordBlackboxMacros.selectMacro[S]
+
+    def to[S]: S = macro RecordBlackboxMacros.toMacro[S]
+
+    /** Combine two records into one.
+        The combined one will have the keys of both. */
+    def &[O <: AnyRef](other: Record[O])
+      = new Record[T with O](values ++ other.values)
+
+    def With[O <: AnyRef](other: Record[O])
+      = new Record[T with O](values ++ other.values)
+
+    def apply[K <: String](select: select[K]): Record[AnyRef]
+      = macro RecordWhiteboxMacros.selectMacro[K]
+
+    /** select columns */
+    // def map[E](f: T => E)
+
+  }
 }
 
 // Record is co-variant for structural upcasting
@@ -40,114 +68,57 @@ class Record[+T <: AnyRef](
 ) extends Dynamic{
   override def toString = "Record("+values.toString+")"
 
-  def toTuple: Product
-    = macro RecordWhiteboxMacros.tupleMacro
-
-  /** like structural upcasting but removes the values of the lost fields from memory */
-  def select[S >: T <: AnyRef]: Record[S] = macro RecordBlackboxMacros.selectMacro[S]
-
-  def to[S]: S = macro RecordBlackboxMacros.toMacro[S]
-
-  /** Combine two records into one.
-      The combined one will have the keys of both. */
-  def &[O <: AnyRef](other: Record[O])
-    = new Record[T with O](values ++ other.values)
-
-  def With[O <: AnyRef](other: Record[O])
-    = new Record[T with O](values ++ other.values)
-
   def selectDynamic[K <: String](key: K): Any
     = macro RecordWhiteboxMacros.lookupMacro[K]
-
-  def apply[K <: String](select: select[K]): Record[AnyRef]
-    = macro RecordWhiteboxMacros.selectMacro[K]
-
-  // /** select columns */def map[E](f: T => E)
-
-  //def updateDynamic[K <: String](key: K)(value:Any): Record[T]
-  //  = new Record[T](values ++ Map(key -> value))
 
   def applyDynamic[K <: String](key: K)(value:Any): Record[AnyRef]
     = macro RecordWhiteboxMacros.appendFieldMacro[K]
 
   // TODO: make typesafe with macros
-  def applyDynamicNamed(method: String)(keyValues: (String, Any)*): Record[T] = macro RecordBlackboxMacros.copyMacro[T]
-/*
-  def selectDynamic[K <: String](k: K): Any
-    = macro Record.extractMacro[K]
+  def applyDynamicNamed(method: String)(keyValues: (String, Any)*): Record[T]
+    = macro RecordBlackboxMacros.copyMacro[T]
 
-  def value: Any
-    = macro Record.valueMacro
-*/
+  // somehow conflicted with applyDynamic, etc.
+  //def updateDynamic[K <: String](key: K)(value:Any): Record[T]
+  //  = new Record[T](values ++ Map(key -> value))
+
   //def updateDynamic[K <: String](key: K)(value:Any): Any = macro Record.createMacro3[K]
 }
 trait RecordMacroHelpers extends MacroHelpers{
   val c: BlackboxContext
   import c.universe._
 
-  protected def lookup(record: Tree, key: Tree, valueType: Type)
-    = q"$record.values($key).asInstanceOf[$valueType]"
-
-  protected def byKey(typePairs: Seq[Type])
-    = typePairs.map(p => splitPair(p)._1 -> p).toMap
-
-  protected def keyValues(record: Tree)
-    = splitRefinedTypes(firstTypeArg(record))
-
-  //@scala.annotation.tailrec
-  final def collectScopes(tpe: Type, seq: Seq[Symbol] = Seq()): Seq[Symbol] = {
-    def println(str: Any) = ()
-    println(":"+tpe)
-    tpe match {
-      case RefinedType(Seq(tpe),scope) => println("1");collectScopes(tpe,seq++scope.toSeq)
-      case RefinedType(Seq(),scope) => println("2");scope.toSeq
-      case RefinedType(tpes,scope) if scope.isEmpty => println("3");tpes.map(collectScopes(_)).reduce(_ ++ _)
-      //case RefinedType(foo,scope) => println((foo,scope));???
-      //case tq"AnyRef" => Seq()
-      //case other => println("other: "+other.getClass);???
-      case other =>
-      println("4");
-        println(other)
-        println(showRaw(other))
-        println(other.getClass)
-        seq
-    }
-  }
-
-  protected def keyValues2(record: Tree): Map[String, Type] = keyValues3(firstTypeArg(record))
-
-  protected def keyValues3(tpe: Type): Map[String, Type]
-    = {/*println(firstTypeArg(record).getClass)
-      println(firstTypeArg(record))
-      println(showRaw(firstTypeArg(record)))
-         */ 
-          collection.immutable.ListMap(collectScopes(tpe)
-          // match {
-        //case typeArg@RefinedType(_,scope) if !scope.isEmpty =>
-          //scope
-          .map{case s:MethodSymbol => (s.name.decodedName.toString, s.returnType)}: _*)
-        /*case typeArg =>
-          splitRefinedTypes(typeArg).map(splitPair).map{
-            case (ConstantType(Constant(key:String)), value) => (key, value)
-          }*/
-      //})
-
-        }
-
+  /** new record from key values pairs */ 
   protected def newRecord(tpe: Tree, keyValues: Seq[Tree], n: Any = null)
     = q"""new Record[$tpe](Map(..$keyValues))"""
 
-  protected def keyString(key: Tree) =
-    key match{
-      case Literal(Constant("apply")) =>
-        error("Error: .apply is prohibited for Records.")
-        ???
-        //q"""${c.prefix}"""
-      case Literal(Constant(const)) => const
-      case _ =>
-        error("Only string literals are allows as keys, not: "+key)
-        ???
+  /** lookup record values */
+  protected def lookup(record: Tree, key: Tree, valueType: Type)
+    = q"$record.values($key).asInstanceOf[$valueType]"
+
+  /** Collects all definition symbols from the the refinement bodies
+      of the involved types.
+      E.g. Seq(def name: String, def age:Int)
+      for  {def name: String} with {def age: Int}
+      
+      Warning: not tail recursive, could blow the stack */
+  protected final def collectDefs(tpe: Type, seq: Seq[Symbol] = Seq()): Seq[Symbol] = {
+    tpe match {
+      case RefinedType(Seq(tpe),scope) => collectDefs(tpe,seq++scope.toSeq)
+      case RefinedType(Seq(),scope) => scope.toSeq
+      case RefinedType(tpes,scope) if scope.isEmpty => tpes.map(collectDefs(_)).reduce(_ ++ _)
+      case other => seq
     }
+  }
+
+  /** map from field names to types */
+  protected def typesByKey(tpe: Type): Map[String, Type]
+    = ListMap(
+        collectDefs(tpe).map{
+          case s:MethodSymbol =>
+            (s.name.decodedName.toString, s.returnType)
+        }: _*
+      )
 
   protected def createRecord(_keyValues: (Tree, Tree)*)
     = {
@@ -186,7 +157,7 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
 
   def unpackMacro[T:c.WeakTypeTag](record: Tree): Tree = {
     //q"org.cvogt.compossible.RecordLookup($record)"
-    val fields = keyValues2(record).map{
+    val fields = typesByKey(firstTypeArg(record)).map{
       case(key, tpe) => q"def ${TermName(key)} = $record.values($key).asInstanceOf[$tpe]"
     }
     q"new{..$fields}"
@@ -203,15 +174,15 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
 
   def selectMacro[K:c.WeakTypeTag]
     = {
-      val typesByKey = keyValues2(c.prefix.tree)
+      val tbk = typesByKey(firstTypeArg(c.prefix.tree))
 
-      val selectedKeyValues = keyValues3(c.weakTypeTag[K].tpe)
+      val selectedKeyValues = typesByKey(c.weakTypeTag[K].tpe)
       selectedKeyValues.foreach{
-        case (key, tpe) => assert(tpe == typesByKey(key))
+        case (key, tpe) => assert(tpe == tbk(key))
       }
       val selectedTypes = selectedKeyValues.keys.toSeq
 
-      val defs = selectedTypes zip selectedTypes.map(typesByKey) map {
+      val defs = selectedTypes zip selectedTypes.map(tbk) map {
         case (key, tpe) => q"def ${TermName(key)}: ${tpe}"
       }
       newRecord(
@@ -225,15 +196,13 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
   def toMacro[K:c.WeakTypeTag]
     = {
       println(c.weakTypeTag[K])
-      val typesByKey = keyValues2(c.prefix.tree)
+      val tbk = typesByKey(firstTypeArg(c.prefix.tree))
 
       c.weakTypeTag[K].tpe match {
         case tpe if isCaseClass(tpe) =>
           val caseClassfields = caseClassFieldsTypes(tpe).map(_._1)
-          val recordFieldsTypes = keyValues2(c.prefix.tree)
-          println(caseClassfields)
           val accessors = caseClassfields.map{
-            case key => lookup(c.prefix.tree,Literal(Constant(key)),recordFieldsTypes(key))
+            case key => lookup(c.prefix.tree,Literal(Constant(key)),tbk(key))
           }
           q"""new $tpe(..$accessors)"""
       }
@@ -258,8 +227,8 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
       }
       println(selectedTypes)
 
-      val typesByKey = keyValues2(c.prefix.tree)
-      val defs = selectedTypes zip selectedTypes.map(typesByKey) map {
+      val tbk = typesByKey(firstTypeArg(c.prefix.tree))
+      val defs = selectedTypes zip selectedTypes.map(tbk) map {
         case (key, tpe) => q"def ${TermName(key)}: ${tpe}"
       }
       newRecord(
@@ -273,7 +242,6 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
 
   def appendFieldMacro[K <: String:c.WeakTypeTag](key: Tree)(value: Tree)
     = {
-    keyString(key)
     q"""${c.prefix.tree} & ${createRecord((key, value))}"""
   }
 
@@ -286,10 +254,10 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
       //println(collectScopes(firstTypeArg(c.prefix.tree)))
       //println(key)
       val valueType = 
-        keyValues2(c.prefix.tree)
+        typesByKey(firstTypeArg(c.prefix.tree))
           .get(key match {case Literal(Constant(key:String)) => key})//.tpe match {case ConstantType(Constant(key: String)) => key})
           .getOrElse{
-            error(s"""Record has no key .${keyString(key)}""")
+            error(s"""Record has no key .${key}""")
             ???
           }
       lookup(c.prefix.tree, key, valueType)
@@ -355,9 +323,9 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
   def tupleMacro
     = {
       val accessors = 
-        keyValues2(c.prefix.tree).map{
+        typesByKey(firstTypeArg(c.prefix.tree)).map{
             case (key,valueType) => 
-              lookup(c.prefix.tree,Literal(Constant(key)),valueType)
+              lookup(q"${c.prefix.tree}.record",Literal(Constant(key)),valueType)
           }
       q"""(..$accessors)"""
     }
