@@ -156,7 +156,10 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
   }
 
   def copy[T:c.WeakTypeTag](method: Tree)(keyValues: Tree*) = {
-    method match { case Literal(Constant("copy")) => }
+    method match {
+      case Literal(Constant("copy")) =>
+      case _ => error("no method found ${constantString(method)}")
+    }
     //val values == keyValues.map{(kfoldLeft(q"", $keyValues.toMap
     newRecord(TypeTree(c.weakTypeTag[T].tpe), q"$prefixTree.values ++ Map(..$keyValues)")
   }
