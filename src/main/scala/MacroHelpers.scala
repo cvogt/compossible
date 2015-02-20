@@ -9,6 +9,7 @@ trait MacroHelpers{
   val prefixTree = c.prefix.tree
 
   protected def error(msg: String) = c.error(c.enclosingPosition, msg)
+  protected def abort(msg: String) = c.abort(c.enclosingPosition, msg)
   protected def constantString(t: Tree) = t match {
     case Literal(Constant(str: String)) => str
   }

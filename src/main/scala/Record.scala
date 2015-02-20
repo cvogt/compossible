@@ -20,18 +20,28 @@ trait RecordFactory extends Dynamic{
   /** [whitebox] Create a record from a case class */
   def from(obj: Any): Record[AnyRef]
     = macro RecordWhiteboxMacros.from
-  /** [whitebox] Create a record from a named arguments list */
-  def applyDynamicNamed[T <: AnyRef](method: String)(keysValues: T*): Record[AnyRef]
-    = macro RecordWhiteboxMacros.applyDynamicNamed
 }
-/** [whitebox] Create a record from a named arguments list 
-    (same as Record.named but allows renaming) */
-object RecordNamed extends RecordFactory
 
 /** [blackbox] Create a record from a structural refinement type (new { ... })*/
 object Record extends RecordFactory{
   def apply[V <: AnyRef](struct: V): Record[V]
     = macro RecordBlackboxMacros.apply[V]
+
+  /** [whitebox] Create a record from a named arguments list 
+      (object with apply to support named arguments */
+  object named extends RecordFactory{
+    /** [whitebox] Create a record from a named arguments list */
+    def applyDynamicNamed[T <: AnyRef](method: String)(keysValues: T*): Record[AnyRef]
+      = macro RecordWhiteboxMacros.createFromNamedArguments
+  }
+
+  /** [whitebox] Create a record matching the given type
+      (object with apply to support named arguments */
+  object typed extends RecordFactory{
+    /** [whitebox] Create a record matching the given type */
+    def applyDynamicNamed[T](method: String)(keysValues: Any*): Record[T]
+      = macro RecordBlackboxMacros.createForType[T]
+  }
 
   implicit class RecordMethods[T <: AnyRef](val record: Record[T]){
     val values = record.values
@@ -194,11 +204,21 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
         q"""new $tpe(..$accessors)"""
     }
   }
+
+  def createForType[T:c.WeakTypeTag](method: Tree)(keysValues: Tree*) = {
+    createRecord{
+      val keysValuesSplit = keysValues.map(splitTreePair).map{
+        case (keyTree, value) => (constantString(keyTree), value)
+      }
+      val positionalValues = keysValuesSplit.takeWhile(_._1 == "").map(_._2)
+      val positionalKeys = extractTypesByKey(tpe[T].dealias).take(positionalValues.size).keys
+      val namedArgs = keysValuesSplit.dropWhile(_._1 == "")
+      if(namedArgs.exists(_._1 == "")) error("positional after named argument")
+      (positionalKeys zip positionalValues).toSeq ++ namedArgs
+    }
+  }
 }
 
-case class RecordLookup(r: Record[_ <: AnyRef]) extends Dynamic{
-  def selectDynamic[T](key: String) = r.values(key).asInstanceOf[T]
-}
 class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
   import c.universe._
 
@@ -207,13 +227,13 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
         splitRefinedTypes(tpe[K]).map(constantTypeString)
       )
 
-  def applyDynamicNamed(method: Tree)(keysValues: Tree*)
-    = createRecord(
-        keysValues.map(splitTreePair).map{
-          case (keyTree, value) => (constantString(keyTree), value)
-        }
-      )
-
+  def createFromNamedArguments(method: Tree)(keysValues: Tree*) = {
+    createRecord(
+      keysValues.map(splitTreePair).map{
+        case (keyTree, value) => (constantString(keyTree), value)
+      }
+    )
+  }
 
   def appendField[K <: String:c.WeakTypeTag](key: Tree)(value: Tree) = {
     val record = createRecord(Seq((constantString(key), value)))

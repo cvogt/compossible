@@ -11,7 +11,7 @@ import scala.language.postfixOps
 // SLICK STUFF
 
 class RecordTest extends FunSuite {
-  val RN = RecordNamed
+  val RN = Record.named
 
   test("basic") {
     val r: Record[{def name: String}]
@@ -101,14 +101,19 @@ class RecordTest extends FunSuite {
 
       assert("Chris" === personWithCar.car.owner)
 
-      type Tpe = {
+      type Person = {
         def name: String
         def age: Int
         def dob: java.util.Date
       }
-      def foo(record: Record[Tpe]) = record.name
+      def foo(record: Record[Person]) = record.name
       foo(personWithCar)
       foo(personWithCar.select)
+      Record.typed[Person](
+        "Chris",
+        age = 99,
+        dob = new java.util.Date
+      )
 
       def foo2(record: Record[{
         def name: String
