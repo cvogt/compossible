@@ -163,22 +163,26 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
     newRecord(typeTree[T], q"$prefixTree.values ++ Map(..$keyValues)")
   }
 
+  def defTree(keyType: (String, Type)) = 
+    keyType match {
+      case (key, tpe) => q"def ${TermName(key)}: ${tpe}"
+    }
+  def pairTree = (key: String, value: Tree) => q"$key -> $value"
+
   def selectMacro[K:c.WeakTypeTag]
     = {
-      val typesByKey = extractTypesByKey(firstTypeArg(prefixTree))
+      val allTypesByKey      = extractTypesByKey(firstTypeArg(prefixTree))
+      val selectedTypesByKey = extractTypesByKey(tpe[K])
+      
+      selectedTypesByKey.foreach{
+        case (key, tpe) => assert(tpe == allTypesByKey(key))
+      }
+      
+      val selectedKeys = selectedTypesByKey.keys.toSeq
 
-      val selectedKeyValues = extractTypesByKey(tpe[K])
-      selectedKeyValues.foreach{
-        case (key, tpe) => assert(tpe == typesByKey(key))
-      }
-      val selectedTypes = selectedKeyValues.keys.toSeq
+      val defs   = selectedKeys zip selectedKeys.map(allTypesByKey) map defTree
+      val values = selectedKeys map (key => (key,q"$prefixTree.values($key)")) map pairTree.tupled
 
-      val defs = selectedTypes zip selectedTypes.map(typesByKey) map {
-        case (key, tpe) => q"def ${TermName(key)}: ${tpe}"
-      }
-      val values = selectedTypes.map{
-        key => q"$key -> ${c.prefix}.values($key)"
-      }
       newRecord( tq"AnyRef{..$defs}", q"Map(..$values)" )
     }
 
