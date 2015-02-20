@@ -132,22 +132,15 @@ trait RecordMacroHelpers extends MacroHelpers{
     newRecord( tq"AnyRef{..$defs}", q"Map(..$data)" )
   }
 
-  def select[K:c.WeakTypeTag]
-    = {
-      val allTypesByKey      = extractTypesByKey(firstTypeArg(prefixTree))
-      val selectedTypesByKey = extractTypesByKey(tpe[K])
-      
-      selectedTypesByKey.foreach{
-        case (key, tpe) if tpe == allTypesByKey(key) =>
-      }
-      
-      val selectedKeys = selectedTypesByKey.keys.toSeq
+  protected def selectHelper(selectedKeys: Seq[String]) = {
+    val allTypesByKey      = extractTypesByKey(firstTypeArg(prefixTree))
 
-      val defs   = selectedKeys zip selectedKeys.map(allTypesByKey) map defTree.tupled
-      val values = selectedKeys map (key => (key,q"$prefixTree.values($key)")) map pairTree.tupled
+    val defs   = selectedKeys zip selectedKeys.map(allTypesByKey) map defTree.tupled
+    val values = selectedKeys map (key => (key,q"$prefixTree.values($key)")) map pairTree.tupled
 
-      newRecord( tq"AnyRef{..$defs}", q"Map(..$values)" )
-    }
+    newRecord( tq"AnyRef{..$defs}", q"Map(..$values)" )
+  }
+
 }
 class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
   import c.universe._
@@ -162,6 +155,16 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
           }
       }
     )
+
+  def select[K:c.WeakTypeTag] = {
+    val allTypesByKey      = extractTypesByKey(firstTypeArg(prefixTree))
+    val selectedTypesByKey = extractTypesByKey(tpe[K])
+    selectedTypesByKey.foreach{
+      case (key, tpe) if tpe == allTypesByKey(key) =>
+    }
+    val selectedKeys = selectedTypesByKey.keys.toSeq
+    selectHelper(selectedKeys)
+  }
 
   /** create a new structural refinement type for the data of the record */
   def unpack[T:c.WeakTypeTag](record: Tree): Tree = {
@@ -199,33 +202,10 @@ case class RecordLookup(r: Record[_ <: AnyRef]) extends Dynamic{
 class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
   import c.universe._
 
-  def selectWithSelector[K <: String:c.WeakTypeTag](select: Tree) = {
-      val allTypesByKey = extractTypesByKey(firstTypeArg(prefixTree))
-      val selectedTypes = splitRefinedTypes(tpe[K]) map constantTypeString
-
-      val defs = selectedTypes zip selectedTypes.map(allTypesByKey) map defTree.tupled
-      val values = selectedTypes.map{
-        key => q"$key -> ${c.prefix}.values($key)"
-      }
-      newRecord( tq"AnyRef{..$defs}", q"Map(..$values)" )
-    }
-
-  def select2[K:c.WeakTypeTag]
-    = {
-      val allTypesByKey      = extractTypesByKey(firstTypeArg(prefixTree))
-      val selectedTypesByKey = extractTypesByKey(tpe[K])
-      
-      selectedTypesByKey.foreach{
-        case (key, tpe) if tpe == allTypesByKey(key) =>
-      }
-      
-      val selectedKeys = selectedTypesByKey.keys.toSeq
-
-      val defs   = selectedKeys zip selectedKeys.map(allTypesByKey) map defTree.tupled
-      val values = selectedKeys map (key => (key,q"$prefixTree.values($key)")) map pairTree.tupled
-
-      newRecord( tq"AnyRef{..$defs}", q"Map(..$values)" )
-    }
+  def selectWithSelector[K <: String:c.WeakTypeTag](select: Tree)
+    = selectHelper(
+        splitRefinedTypes(tpe[K]).map(constantTypeString)
+      )
 
   def applyDynamicNamed(method: Tree)(keysValues: Tree*)
     = createRecord(
