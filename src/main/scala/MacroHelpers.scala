@@ -1,4 +1,5 @@
 package org.cvogt.compossible
+import collection.immutable.ListMap
 import scala.reflect.macros.blackbox.Context
 import scala.language.experimental.macros
 
@@ -52,10 +53,10 @@ trait MacroHelpers{
       case m: MethodSymbol if m.isPrimaryConstructor => m
     }.get.paramLists.head
 
-    params.map{ field =>
+    ListMap(params.map{ field =>
       ( field.name.toTermName.decodedName.toString,
         field.typeSignature)
-    }    
+    }: _*)
   }
 
 }

@@ -216,24 +216,21 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
 
 
   def appendField[K <: String:c.WeakTypeTag](key: Tree)(value: Tree) = {
-    val stringKey = key match{ case Literal(Constant(key: String)) => key }
-    val record = createRecord(Seq((stringKey, value)))
+    val record = createRecord(Seq((constantString(key), value)))
     q"$prefixTree With $record"
   }
 
   def lookup[K <: String:c.WeakTypeTag](key: Tree)
     = {
-      //println(firstTypeArg(prefixTree))
-      //println(collectScopes(firstTypeArg(prefixTree)))
-      //println(key)
+      val keyString = constantString(key)
       val valueType = 
         extractTypesByKey(firstTypeArg(prefixTree))
-          .get(key match {case Literal(Constant(key:String)) => key})//.tpe match {case ConstantType(Constant(key: String)) => key})
+          .get(keyString)
           .getOrElse{
             error(s"""Record has no key .${key}""")
             ???
           }
-      lookupTree(prefixTree, constantString(key), valueType)
+      lookupTree(prefixTree, keyString, valueType)
     }
 /*
   def value: c.Expr[Any]
@@ -307,19 +304,10 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
     val tpe = obj.tpe.widen.dealias
     assert(isCaseClass(tpe))
 
-    val names = caseClassFieldsTypes(tpe)
+    val fieldsTypes = caseClassFieldsTypes(tpe) 
+    val keyValues = fieldsTypes.keys.map(k => (k,q"$obj.${TermName(k)}")).map(pairTree.tupled)
 
-    val keyValues = caseClassFieldsTypes(tpe).map{
-      case (name,tpe) => (
-        q"""${Constant(name)} -> ${obj}.${TermName(name)}"""
-      )
-    }
-
-    val defs = names.map{
-      case (name,tpe) => (
-        q"""def ${TermName(name)}: $tpe"""
-      )
-    }
+    val defs = fieldsTypes map defTree.tupled
 
     newRecord(tq"{..$defs}", q"Map(..$keyValues)")
   }
