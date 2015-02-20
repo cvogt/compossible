@@ -19,7 +19,7 @@ object RecordCompletion{
 trait RecordFactory extends Dynamic{
   /** [whitebox] Create a record from a case class */
   def from(obj: Any): Record[AnyRef]
-    = macro RecordWhiteboxMacros.fromCaseClass
+    = macro RecordWhiteboxMacros.from
   /** [whitebox] Create a record from a named arguments list */
   def applyDynamicNamed[T <: AnyRef](method: String)(keysValues: T*): Record[AnyRef]
     = macro RecordWhiteboxMacros.applyDynamicNamed
@@ -90,8 +90,8 @@ trait RecordMacroHelpers extends MacroHelpers{
   import c.universe._
 
   /** new record from key values pairs */ 
-  protected def newRecord(tpe: Tree, keyValues: Seq[Tree], n: Any = null)
-    = q"""new Record[$tpe](Map(..$keyValues))"""
+  protected def newRecord(tpe: Tree, keyValues: Tree, n: Any = null)
+    = q"""new Record[$tpe]($keyValues)"""
 
   /** lookup record values */
   protected def lookup(record: Tree, key: Tree, valueType: Type)
@@ -129,7 +129,7 @@ trait RecordMacroHelpers extends MacroHelpers{
     val data = keysValues.map{
       case (key, value) => q"$key -> $value"
     }
-    newRecord( tq"AnyRef{..$defs}", data )
+    newRecord( tq"AnyRef{..$defs}", q"Map(..$data)" )
   }
 }
 class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
@@ -158,10 +158,7 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
   def copy[T:c.WeakTypeTag](method: Tree)(keyValues: Tree*) = {
     method match { case Literal(Constant("copy")) => }
     //val values == keyValues.map{(kfoldLeft(q"", $keyValues.toMap
-    q"""new Record[${c.weakTypeTag[T]}](
-      values=${c.prefix}.values ++ Map(..$keyValues),
-      struct=${c.prefix}.struct
-    )"""
+    newRecord(TypeTree(c.weakTypeTag[T].tpe), q"$prefixTree.values ++ Map(..$keyValues)")
   }
 
   def selectMacro[K:c.WeakTypeTag]
@@ -177,12 +174,10 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
       val defs = selectedTypes zip selectedTypes.map(tbk) map {
         case (key, tpe) => q"def ${TermName(key)}: ${tpe}"
       }
-      newRecord(
-        tq"AnyRef{..$defs}",
-        selectedTypes.map{
-          key => q"$key -> ${c.prefix}.values($key)"
-        }
-      )
+      val values = selectedTypes.map{
+        key => q"$key -> ${c.prefix}.values($key)"
+      }
+      newRecord( tq"AnyRef{..$defs}", q"Map(..$values)" )
     }
 
   def toMacro[K:c.WeakTypeTag]
@@ -226,12 +221,10 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
       val defs = selectedTypes zip selectedTypes.map(tbk) map {
         case (key, tpe) => q"def ${TermName(key)}: ${tpe}"
       }
-      newRecord(
-        tq"AnyRef{..$defs}",
-        selectedTypes.map{
-          key => q"$key -> ${c.prefix}.values($key)"
-        }
-      )
+      val values = selectedTypes.map{
+        key => q"$key -> ${c.prefix}.values($key)"
+      }
+      newRecord( tq"AnyRef{..$defs}", q"Map(..$values)" )
     }
 
 
@@ -323,25 +316,24 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
       q"""(..$accessors)"""
     }
 
-  def fromCaseClass(obj: Tree)
-    = {
-      val tpe = obj.tpe.widen.dealias
-      assert(isCaseClass(tpe))
+  def from(obj: Tree) = {
+    val tpe = obj.tpe.widen.dealias
+    assert(isCaseClass(tpe))
 
-      val names = caseClassFieldsTypes(tpe)
+    val names = caseClassFieldsTypes(tpe)
 
-      val keyValues = caseClassFieldsTypes(tpe).map{
-        case (name,tpe) => (
-          q"""${Constant(name)} -> ${obj}.${TermName(name)}"""
-        )
-      }
-
-      val defs = names.map{
-        case (name,tpe) => (
-          q"""def ${TermName(name)}: $tpe"""
-        )
-      }
-
-      newRecord(tq"{..$defs}", keyValues)
+    val keyValues = caseClassFieldsTypes(tpe).map{
+      case (name,tpe) => (
+        q"""${Constant(name)} -> ${obj}.${TermName(name)}"""
+      )
     }
+
+    val defs = names.map{
+      case (name,tpe) => (
+        q"""def ${TermName(name)}: $tpe"""
+      )
+    }
+
+    newRecord(tq"{..$defs}", q"Map(..$keyValues)")
+  }
 }
