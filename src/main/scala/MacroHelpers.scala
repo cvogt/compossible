@@ -22,7 +22,9 @@ trait MacroHelpers{
   def typeTree[T: c.WeakTypeTag] = TypeTree(tpe[T])
   def tpe[T: c.WeakTypeTag] = c.weakTypeTag[T].tpe
   def defTree  = (key: String, tpe: Type) => q"def ${TermName(key)}: ${tpe}"
+  def defAssignTree  = (key: String, value: Tree) => q"def ${TermName(key)} = ${value}"
   def pairTree = (key: String, value: Tree) => q"$key -> $value"
+  def constant = (key: String) => Literal(Constant(key))
 
   protected def prefixTypeArg
     = firstTypeArg(c.prefix.tree)
