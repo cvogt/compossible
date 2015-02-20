@@ -37,12 +37,12 @@ object Record extends RecordFactory{
     val values = record.values
     /** [whitebox] Convert Record into a tuple */
     def toTuple: Product
-      = macro RecordWhiteboxMacros.tupleMacro    
+      = macro RecordWhiteboxMacros.tuple    
 
     /** like structural upcasting but removes the values of the lost fields from memory */
-    def select[S >: T <: AnyRef]: Record[S] = macro RecordBlackboxMacros.selectMacro[S]
+    def select[S >: T <: AnyRef]: Record[S] = macro RecordBlackboxMacros.select[S]
 
-    def to[S]: S = macro RecordBlackboxMacros.toMacro[S]
+    def to[S]: S = macro RecordBlackboxMacros.to[S]
 
     /** Combine two records into one.
         The combined one will have the keys of both. */
@@ -53,7 +53,7 @@ object Record extends RecordFactory{
       = new Record[T with O](values ++ other.values)
 
     def apply[K <: String](select: select[K]): Record[AnyRef]
-      = macro RecordWhiteboxMacros.selectMacro[K]
+      = macro RecordWhiteboxMacros.select[K]
 
     /** select columns */
     // def map[E](f: T => E)
@@ -70,10 +70,10 @@ class Record[+T <: AnyRef](
   override def toString = "Record("+values.toString+")"
 
   def selectDynamic[K <: String](key: K): Any
-    = macro RecordWhiteboxMacros.lookupMacro[K]
+    = macro RecordWhiteboxMacros.lookup[K]
 
   def applyDynamic[K <: String](key: K)(value:Any): Record[AnyRef]
-    = macro RecordWhiteboxMacros.appendFieldMacro[K]
+    = macro RecordWhiteboxMacros.appendField[K]
 
   // TODO: make typesafe with macros
   def applyDynamicNamed(method: String)(keyValues: (String, Any)*): Record[T]
@@ -83,7 +83,7 @@ class Record[+T <: AnyRef](
   //def updateDynamic[K <: String](key: K)(value:Any): Record[T]
   //  = new Record[T](values ++ Map(key -> value))
 
-  //def updateDynamic[K <: String](key: K)(value:Any): Any = macro Record.createMacro3[K]
+  //def updateDynamic[K <: String](key: K)(value:Any): Any = macro Record.create3[K]
 }
 trait RecordMacroHelpers extends MacroHelpers{
   val c: BlackboxContext
@@ -163,7 +163,7 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
     newRecord(typeTree[T], q"$prefixTree.values ++ Map(..$keyValues)")
   }
 
-  def selectMacro[K:c.WeakTypeTag]
+  def select[K:c.WeakTypeTag]
     = {
       val allTypesByKey      = extractTypesByKey(firstTypeArg(prefixTree))
       val selectedTypesByKey = extractTypesByKey(tpe[K])
@@ -180,7 +180,7 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
       newRecord( tq"AnyRef{..$defs}", q"Map(..$values)" )
     }
 
-  def toMacro[K:c.WeakTypeTag] = {
+  def to[K:c.WeakTypeTag] = {
     val typesByKey = extractTypesByKey(firstTypeArg(prefixTree))
 
     tpe[K] match {
@@ -206,7 +206,7 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
         }
       )
 
-  def selectMacro[K <: String:c.WeakTypeTag](select: Tree) = {
+  def select[K <: String:c.WeakTypeTag](select: Tree) = {
       val selectedTypes = splitRefinedTypes(tpe[K]).map{
         case ConstantType(Constant(key: String)) => key
       }
@@ -223,13 +223,13 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
     }
 
 
-  def appendFieldMacro[K <: String:c.WeakTypeTag](key: Tree)(value: Tree) = {
+  def appendField[K <: String:c.WeakTypeTag](key: Tree)(value: Tree) = {
     val stringKey = key match{ case Literal(Constant(key: String)) => key }
     val record = createRecord(Seq((stringKey, value)))
     q"$prefixTree With $record"
   }
 
-  def lookupMacro[K <: String:c.WeakTypeTag](key: Tree)
+  def lookup[K <: String:c.WeakTypeTag](key: Tree)
     = {
       //println(firstTypeArg(prefixTree))
       //println(collectScopes(firstTypeArg(prefixTree)))
@@ -244,7 +244,7 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
       lookupTree(prefixTree, constantString(key), valueType)
     }
 /*
-  def valueMacro: c.Expr[Any]
+  def value: c.Expr[Any]
     = {
       import c.universe._
       val recordTypeArg = c.prefix.actualType.widen.typeArgs.head
@@ -265,7 +265,7 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
       c.Expr[Any](q"""${c.prefix}.values($key).asInstanceOf[$v]""")
     }
 
-  def extractMacro[K <: String:c.WeakTypeTag]
+  def extract[K <: String:c.WeakTypeTag]
     (k: c.Expr[K]): c.Expr[Any]
     = {
       val recordTypeArg = c.prefix.actualType.widen.typeArgs.head
@@ -301,7 +301,7 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
       c.Expr[Any](q"""new Record[(${k.tree.tpe},$v)](Map(${k.tree} -> ${c.prefix}.values(${k.tree}).asInstanceOf[$v]))""")
     }
 */
-  def tupleMacro
+  def tuple
     = {
       val accessors = 
         extractTypesByKey(firstTypeArg(prefixTree)).map{
