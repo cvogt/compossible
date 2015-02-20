@@ -290,15 +290,14 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
       c.Expr[Any](q"""new Record[(${k.tree.tpe},$v)](Map(${k.tree} -> ${c.prefix}.values(${k.tree}).asInstanceOf[$v]))""")
     }
 */
-  def tuple
-    = {
-      val accessors = 
-        extractTypesByKey(firstTypeArg(prefixTree)).map{
-            case (key,valueType) => 
-              lookupTree(q"$prefixTree.record",key,valueType)
-          }
-      q"""(..$accessors)"""
-    }
+  def tuple = {
+    val accessors = 
+      extractTypesByKey(firstTypeArg(prefixTree)).map{
+          case (key,valueType) => 
+            lookupTree(q"$prefixTree.record",key,valueType)
+        }
+    q"""(..$accessors)"""
+  }
 
   def from(obj: Tree) = {
     val tpe = obj.tpe.widen.dealias

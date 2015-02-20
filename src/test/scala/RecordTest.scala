@@ -8,18 +8,11 @@ import scala.language.postfixOps
 //import RecordCompletion._
 //import scala.language.reflectiveCalls
 
+// SLICK STUFF
+
 class RecordTest extends FunSuite {
   val RN = RecordNamed
 
-  /*object Foo{  
-    implicit def unpack2[R](record: Record[R]) = new{
-      def name_= (v: Any): Record[R] = record
-      def age_= (v: Any): Record[R] = record
-      private [Foo] def name = ???//macro RecordWhiteboxMacros.lookupMacro2[K]
-    }
-  }
-  import Foo.unpack2
-  */
   test("basic") {
     val r: Record[{def name: String}]
       = Record.named(name="Chris")
@@ -44,18 +37,6 @@ class RecordTest extends FunSuite {
       assert(99 === person.age)
       assert(person.dob === person.dob)
     };
-
-    Record.named(
-      name = "Chris",
-      age = 99,
-      dob = new java.util.Date()
-    )
-
-    Record(new{
-      def name = "Chris"
-      def age = 99
-      def dob = new java.util.Date()
-    })
 
     val person = Record(new{
       def name = "Chris"
@@ -120,12 +101,6 @@ class RecordTest extends FunSuite {
 
       assert("Chris" === personWithCar.car.owner)
 
-      //new Bar.Foo[String]().name[Int](5)
-
-      //val recordType = (RecordType age [Int] &
-      //                             name[String] &
-      //                             dob [java.util.Date] &)
-      //type tpe = recordType.Type
       type Tpe = {
         def name: String
         def age: Int
@@ -171,7 +146,7 @@ class RecordTest extends FunSuite {
       val r3 = Record.named(dob=new java.util.Date)
       //assert(r3.toTuple._2 == "test")
       val p2 = PersonWithDob.tupled(r.toTuple)
-      def foo(p: PersonWithDob) = println(p)
+      def foo(p: PersonWithDob) = p
       foo(r.to[PersonWithDob]) // <- why does this otherwise infer Nothing?
 
       //p1.toRecord
