@@ -47,6 +47,9 @@ class Record[+T <: AnyRef](
   def toTuple: Product
     = macro RecordWhiteboxMacros.tupleMacro
 
+  /** like structural upcasting but removes the values of the lost fields from memory */
+  def select[S >: T <: AnyRef]: Record[S] = macro RecordBlackboxMacros.toMacro[S]
+
   /** Combine two records into one.
       The combined one will have the keys of both. */
   def &[O <: AnyRef](other: Record[O])
@@ -60,6 +63,8 @@ class Record[+T <: AnyRef](
 
   def apply[K <: String](select: select[K]): Record[AnyRef]
     = macro RecordWhiteboxMacros.selectMacro[K]
+
+  // /** select columns */def map[E](f: T => E)
 
   //def updateDynamic[K <: String](key: K)(value:Any): Record[T]
   //  = new Record[T](values ++ Map(key -> value))
@@ -111,13 +116,14 @@ trait RecordMacroHelpers extends MacroHelpers{
     }
   }
 
+  protected def keyValues2(record: Tree): Map[String, Type] = keyValues3(firstTypeArg(record))
 
-  protected def keyValues2(record: Tree): Map[String, Type]
+  protected def keyValues3(tpe: Type): Map[String, Type]
     = {/*println(firstTypeArg(record).getClass)
       println(firstTypeArg(record))
       println(showRaw(firstTypeArg(record)))
          */ 
-          collection.immutable.ListMap(collectScopes(firstTypeArg(record))
+          collection.immutable.ListMap(collectScopes(tpe)
           // match {
         //case typeArg@RefinedType(_,scope) if !scope.isEmpty =>
           //scope
@@ -196,6 +202,27 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
       struct=${c.prefix}.struct
     )"""
   }
+
+  def toMacro[K <: AnyRef:c.WeakTypeTag]
+    = {
+      val typesByKey = keyValues2(c.prefix.tree)
+
+      val selectedKeyValues = keyValues3(c.weakTypeTag[K].tpe)
+      selectedKeyValues.foreach{
+        case (key, tpe) => assert(tpe == typesByKey(key))
+      }
+      val selectedTypes = selectedKeyValues.keys.toSeq
+
+      val defs = selectedTypes zip selectedTypes.map(typesByKey) map {
+        case (key, tpe) => q"def ${TermName(key)}: ${tpe}"
+      }
+      newRecord(
+        tq"AnyRef{..$defs}",
+        selectedTypes.map{
+          key => q"$key -> ${c.prefix}.values($key)"
+        }
+      )
+    }
 }
 case class RecordLookup(r: Record[_ <: AnyRef]) extends Dynamic{
   def selectDynamic[T](key: String) = r.values(key).asInstanceOf[T]

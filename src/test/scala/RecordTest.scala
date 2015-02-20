@@ -132,12 +132,17 @@ class RecordTest extends FunSuite {
         def dob: java.util.Date
       }
       def foo(record: Record[Tpe]) = record.name
+      foo(personWithCar)
+      foo(personWithCar.select)
 
       def foo2(record: Record[{
         def name: String
         def age: Int
         def dob: java.util.Date
       }]) = record.age
+
+      foo2(personWithCar)
+      foo2(personWithCar.select)
 
       assert("Chris" === foo(person))
       assert("Chris" === foo(personWithCar))
@@ -166,6 +171,7 @@ class RecordTest extends FunSuite {
       val r3 = Record.named(dob=new java.util.Date, toTuple="test")
       assert(r3.toTuple._2 == "test")
       val p2 = PersonWithDob.tupled(r.toTuple)
+      def foo(p: PersonWithDob) = println(p)
     };
 
     {
