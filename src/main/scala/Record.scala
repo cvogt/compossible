@@ -14,15 +14,15 @@ object RecordCompletion{
       switches to structural type record member resolution, which
       uses reflection and leads to corresponding warnings.
       Suggestion: Use this during development and remove for production. */
-  implicit def unpack[T](record: Record[T]): T = macro RecordBlackboxMacros.unpackMacro[T]  
+  implicit def unpack[T](record: Record[T]): T = macro RecordBlackboxMacros.unpack[T]  
 }
 trait RecordFactory extends Dynamic{
   /** [whitebox] Create a record from a case class */
   def from(obj: Any): Record[AnyRef]
-    = macro RecordWhiteboxMacros.fromCaseClassMacro
+    = macro RecordWhiteboxMacros.fromCaseClass
   /** [whitebox] Create a record from a named arguments list */
   def applyDynamicNamed[T <: AnyRef](method: String)(keysValues: T*): Record[AnyRef]
-    = macro RecordWhiteboxMacros.createManyMacro
+    = macro RecordWhiteboxMacros.applyDynamicNamed
 }
 /** [whitebox] Create a record from a named arguments list 
     (same as Record.named but allows renaming) */
@@ -31,7 +31,7 @@ object RecordNamed extends RecordFactory
 /** [blackbox] Create a record from a structural refinement type (new { ... })*/
 object Record extends RecordFactory{
   def apply[V <: AnyRef](struct: V): Record[V]
-    = macro RecordBlackboxMacros.createMacro[V]
+    = macro RecordBlackboxMacros.apply[V]
 
   implicit class RecordMethods[T <: AnyRef](val record: Record[T]){
     val values = record.values
@@ -77,7 +77,7 @@ class Record[+T <: AnyRef](
 
   // TODO: make typesafe with macros
   def applyDynamicNamed(method: String)(keyValues: (String, Any)*): Record[T]
-    = macro RecordBlackboxMacros.copyMacro[T]
+    = macro RecordBlackboxMacros.copy[T]
 
   // somehow conflicted with applyDynamic, etc.
   //def updateDynamic[K <: String](key: K)(value:Any): Record[T]
@@ -122,23 +122,20 @@ trait RecordMacroHelpers extends MacroHelpers{
       )
 
   protected def createRecord(keysValues: Seq[(String, Tree)]) = {
-    val types = keysValues.map{
-        case (key,value) =>
-          q"def ${TermName(key)}: ${value.tpe.widen}"
+    val defs = keysValues.map{
+      case (key,value) =>
+        q"def ${TermName(key)}: ${value.tpe.widen}"
     }
     val data = keysValues.map{
       case (key, value) => q"$key -> $value"
     }
-    newRecord( tq"AnyRef{..$types}", data )
+    newRecord( tq"AnyRef{..$defs}", data )
   }
 }
 class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
   import c.universe._
 
-  //def createStructuralMacro[K](struct: Tree)
-  //  = createRecord((Literal(Constant("apply")), struct))
-
-  def createMacro[K](struct: Tree) =
+  def apply[K](struct: Tree) =
     createRecord(
       struct match {
         case q"new {..$fields}" =>
@@ -150,7 +147,7 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
     )
 
   /** create a new structural refinement type for the data of the record */
-  def unpackMacro[T:c.WeakTypeTag](record: Tree): Tree = {
+  def unpack[T:c.WeakTypeTag](record: Tree): Tree = {
     //q"org.cvogt.compossible.RecordLookup($record)"
     val fields = typesByKey(firstTypeArg(record)).map{
       case(key, tpe) => q"def ${TermName(key)} = $record.values($key).asInstanceOf[$tpe]"
@@ -158,7 +155,7 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
     q"new{..$fields}"
   }
 
-  def copyMacro[T:c.WeakTypeTag](method: Tree)(keyValues: Tree*) = {
+  def copy[T:c.WeakTypeTag](method: Tree)(keyValues: Tree*) = {
     method match { case Literal(Constant("copy")) => }
     //val values == keyValues.map{(kfoldLeft(q"", $keyValues.toMap
     q"""new Record[${c.weakTypeTag[T]}](
@@ -210,7 +207,7 @@ case class RecordLookup(r: Record[_ <: AnyRef]) extends Dynamic{
 class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
   import c.universe._
 
-  def createManyMacro(method: Tree)(keysValues: Tree*)
+  def applyDynamicNamed(method: Tree)(keysValues: Tree*)
     = createRecord(
         keysValues.map{
           case q"($keyTree,$value)" => (constantString(keyTree), value)
@@ -326,7 +323,7 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
       q"""(..$accessors)"""
     }
 
-  def fromCaseClassMacro(obj: Tree)
+  def fromCaseClass(obj: Tree)
     = {
       val tpe = obj.tpe.widen.dealias
       assert(isCaseClass(tpe))
