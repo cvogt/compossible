@@ -200,12 +200,9 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
   import c.universe._
 
   def selectWithSelector[K <: String:c.WeakTypeTag](select: Tree) = {
-      val selectedTypes = splitRefinedTypes(tpe[K]).map{
-        case ConstantType(Constant(key: String)) => key
-      }
-      println(selectedTypes)
-
       val allTypesByKey = extractTypesByKey(firstTypeArg(prefixTree))
+      val selectedTypes = splitRefinedTypes(tpe[K]) map constantTypeString
+
       val defs = selectedTypes zip selectedTypes.map(allTypesByKey) map defTree.tupled
       val values = selectedTypes.map{
         key => q"$key -> ${c.prefix}.values($key)"

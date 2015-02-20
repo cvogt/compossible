@@ -11,8 +11,8 @@ trait MacroHelpers{
   protected def constantString(t: Tree) = t match {
     case Literal(Constant(str: String)) => str
   }
-  protected def constantStringType(t: Type) = t match {
-    case Literal(Constant(str: String)) => str
+  protected def constantTypeString(t: Type) = t match {
+    case ConstantType(Constant(str: String)) => str
   }
 
   protected def firstTypeArg(tree: Tree) = {
