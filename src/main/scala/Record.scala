@@ -5,6 +5,7 @@ import scala.language.experimental.macros
 import scala.language.dynamics
 import scala.reflect.macros.whitebox.{Context => WhiteboxContext}
 import scala.reflect.macros.blackbox.{Context => BlackboxContext}
+//import scala.reflect.runtime.universe.TypeTag
 
 // Extensible records for Scala based on intersection types
 object RecordCompletion{
@@ -54,13 +55,21 @@ object Record extends RecordFactory{
 
     def to[S]: S = macro RecordBlackboxMacros.to[S]
 
-    /** Combine two records into one.
-        The combined one will have the keys of both. */
-    def &[O <: AnyRef](other: Record[O])
-      = new Record[T with O](values ++ other.values)
+    /** @see With */
+    def &[O <: AnyRef](other: Record[O]): Record[T with O]
+      = macro RecordWhiteboxMacros.With[T,O]
 
-    def With[O <: AnyRef](other: Record[O])
-      = new Record[T with O](values ++ other.values)
+    /** [blackbox] Combine two records into one.
+        The combined one will have the keys of both.
+
+        This actually uses a whitebox to produce a more
+        readable but semantically equivalent return type.
+                {def foo: A} with {def bar: B}
+        becomes {def foo: A; def bar: B}
+        It however behaves like a blackbox macro for all purposes.
+    */
+    def With[O <: AnyRef](other: Record[O]): Record[T with O]
+      = macro RecordWhiteboxMacros.With[T,O]
 
     def apply[K <: String](select: select[K]): Record[AnyRef]
       = macro RecordWhiteboxMacros.selectWithSelector[K]
@@ -221,6 +230,14 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
 
 class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
   import c.universe._
+
+  /**
+  Merge structural refinement types T and O for better error messages
+  */
+  def With[T:c.WeakTypeTag,O:c.WeakTypeTag](other: Tree) = {//(evidence$2: Tree)
+    val defs = extractTypesByKey(tpe[T]) ++ extractTypesByKey(tpe[O]) map defTree.tupled
+    newRecord(tq"{..$defs}", q"$prefixTree.values ++ $other.values")
+  }
 
   def selectWithSelector[K <: String:c.WeakTypeTag](select: Tree)
     = selectHelper(
