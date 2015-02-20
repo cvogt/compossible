@@ -21,7 +21,8 @@ trait RecordFactory extends Dynamic{
   def from(obj: Any): Record[AnyRef]
     = macro RecordWhiteboxMacros.fromCaseClassMacro
   /** [whitebox] Create a record from a named arguments list */
-  def applyDynamicNamed[T <: AnyRef](method: String)(keyValues: T*): Record[AnyRef] = macro RecordWhiteboxMacros.createManyMacro
+  def applyDynamicNamed[T <: AnyRef](method: String)(keysValues: T*): Record[AnyRef]
+    = macro RecordWhiteboxMacros.createManyMacro
 }
 /** [whitebox] Create a record from a named arguments list 
     (same as Record.named but allows renaming) */
@@ -120,28 +121,16 @@ trait RecordMacroHelpers extends MacroHelpers{
         }: _*
       )
 
-  protected def createRecord(_keyValues: (Tree, Tree)*)
-    = {
-      val keyValues: Seq[(String,Tree)] = _keyValues match {
-        case Seq((Literal(Constant("apply")),q"new {..$fields}")) =>
-          fields.map{
-            case q"def $key = $value" => (key.decodedName.toString,value)
-            case q"val $key = $value" => (key.decodedName.toString,value)
-          }
-        case _ => _keyValues.map{case (Literal(Constant(key: String)),v) => (key, v)}
-
-      }
-      val (types, data) = keyValues.map{
-        case (key,value) => (
-          q"def ${TermName(key)}: ${value.tpe.widen}",
-          q"${key} -> ${value}"
-        )
-      }.unzip
-      newRecord(
-        tq"AnyRef{..$types}",
-        data
-      )
+  protected def createRecord(keysValues: Seq[(String, Tree)]) = {
+    val types = keysValues.map{
+        case (key,value) =>
+          q"def ${TermName(key)}: ${value.tpe.widen}"
     }
+    val data = keysValues.map{
+      case (key, value) => q"$key -> $value"
+    }
+    newRecord( tq"AnyRef{..$types}", data )
+  }
 }
 class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
   import c.universe._
@@ -149,12 +138,18 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
   //def createStructuralMacro[K](struct: Tree)
   //  = createRecord((Literal(Constant("apply")), struct))
 
-  def createMacro[K](struct: Tree)
-    = {
-      println(showRaw(struct))
-      createRecord((Literal(Constant("apply")), struct))
-    }
+  def createMacro[K](struct: Tree) =
+    createRecord(
+      struct match {
+        case q"new {..$fields}" =>
+          fields.map{
+            case q"def $key = $value" => (key.decodedName.toString,value)
+            case q"val $key = $value" => (key.decodedName.toString,value)
+          }
+      }
+    )
 
+  /** create a new structural refinement type for the data of the record */
   def unpackMacro[T:c.WeakTypeTag](record: Tree): Tree = {
     //q"org.cvogt.compossible.RecordLookup($record)"
     val fields = typesByKey(firstTypeArg(record)).map{
@@ -215,9 +210,12 @@ case class RecordLookup(r: Record[_ <: AnyRef]) extends Dynamic{
 class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
   import c.universe._
 
-
-  def createMacro[K](key: Tree)(value: Tree)
-    = createRecord((key, value))
+  def createManyMacro(method: Tree)(keysValues: Tree*)
+    = createRecord(
+        keysValues.map{
+          case q"($keyTree,$value)" => (constantString(keyTree), value)
+        }
+      )
 
   def selectMacro[K <: String:c.WeakTypeTag]
                  (select: Tree)
@@ -240,13 +238,11 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
     }
 
 
-  def appendFieldMacro[K <: String:c.WeakTypeTag](key: Tree)(value: Tree)
-    = {
-    q"""${c.prefix.tree} & ${createRecord((key, value))}"""
+  def appendFieldMacro[K <: String:c.WeakTypeTag](key: Tree)(value: Tree) = {
+    val stringKey = key match{ case Literal(Constant(key: String)) => key }
+    val record = createRecord(Seq((stringKey, value)))
+    q"$prefixTree With $record"
   }
-
-  def createManyMacro(method: Tree)(keyValues: Tree*)
-    = createRecord(keyValues.map(splitTreePair):_*)
 
   def lookupMacro[K <: String:c.WeakTypeTag](key: Tree)
     = {
