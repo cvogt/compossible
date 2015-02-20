@@ -149,10 +149,10 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
   /** create a new structural refinement type for the data of the record */
   def unpack[T:c.WeakTypeTag](record: Tree): Tree = {
     //q"org.cvogt.compossible.RecordLookup($record)"
-    val fields = extractTypesByKey(firstTypeArg(record)).map{
+    val accessors = extractTypesByKey(firstTypeArg(record)).map{
       case(key, tpe) => q"def ${TermName(key)} = $record.values($key).asInstanceOf[$tpe]"
     }
-    q"new{..$fields}"
+    q"new{..$accessors}"
   }
 
   def copy[T:c.WeakTypeTag](method: Tree)(keyValues: Tree*) = {
@@ -165,15 +165,15 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
 
   def selectMacro[K:c.WeakTypeTag]
     = {
-      val tbk = extractTypesByKey(firstTypeArg(prefixTree))
+      val typesByKey = extractTypesByKey(firstTypeArg(prefixTree))
 
-      val selectedKeyValues = extractTypesByKey(c.weakTypeTag[K].tpe)
+      val selectedKeyValues = extractTypesByKey(tpe[K])
       selectedKeyValues.foreach{
-        case (key, tpe) => assert(tpe == tbk(key))
+        case (key, tpe) => assert(tpe == typesByKey(key))
       }
       val selectedTypes = selectedKeyValues.keys.toSeq
 
-      val defs = selectedTypes zip selectedTypes.map(tbk) map {
+      val defs = selectedTypes zip selectedTypes.map(typesByKey) map {
         case (key, tpe) => q"def ${TermName(key)}: ${tpe}"
       }
       val values = selectedTypes.map{
@@ -182,20 +182,18 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
       newRecord( tq"AnyRef{..$defs}", q"Map(..$values)" )
     }
 
-  def toMacro[K:c.WeakTypeTag]
-    = {
-      println(c.weakTypeTag[K])
-      val tbk = extractTypesByKey(firstTypeArg(prefixTree))
+  def toMacro[K:c.WeakTypeTag] = {
+    val tbk = extractTypesByKey(firstTypeArg(prefixTree))
 
-      c.weakTypeTag[K].tpe match {
-        case tpe if isCaseClass(tpe) =>
-          val caseClassfields = caseClassFieldsTypes(tpe).map(_._1)
-          val accessors = caseClassfields.map{
-            case key => lookup(prefixTree,Literal(Constant(key)),tbk(key))
-          }
-          q"""new $tpe(..$accessors)"""
-      }
+    tpe[K] match {
+      case tpe if isCaseClass(tpe) =>
+        val caseClassfields = caseClassFieldsTypes(tpe).map(_._1)
+        val accessors = caseClassfields.map{
+          case key => lookup(prefixTree,Literal(Constant(key)),tbk(key))
+        }
+        q"""new $tpe(..$accessors)"""
     }
+  }
 }
 
 case class RecordLookup(r: Record[_ <: AnyRef]) extends Dynamic{
@@ -214,7 +212,7 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
   def selectMacro[K <: String:c.WeakTypeTag]
                  (select: Tree)
     = {
-      val selectedTypes = splitRefinedTypes(c.weakTypeTag[K].tpe).map{
+      val selectedTypes = splitRefinedTypes(tpe[K]).map{
         case ConstantType(Constant(key: String)) => key
       }
       println(selectedTypes)

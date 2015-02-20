@@ -19,7 +19,8 @@ trait MacroHelpers{
     tree.tpe.widen.dealias.typeArgs.head.dealias
   }
 
-  def typeTree[T: c.WeakTypeTag] = TypeTree(c.weakTypeTag[T].tpe)
+  def typeTree[T: c.WeakTypeTag] = TypeTree(tpe[T])
+  def tpe[T: c.WeakTypeTag] = c.weakTypeTag[T].tpe
   
   protected def prefixTypeArg
     = firstTypeArg(c.prefix.tree)
