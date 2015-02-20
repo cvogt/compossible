@@ -113,7 +113,7 @@ trait RecordMacroHelpers extends MacroHelpers{
   }
 
   /** map from field names to types */
-  protected def typesByKey(tpe: Type): Map[String, Type]
+  protected def extractTypesByKey(tpe: Type): Map[String, Type]
     = ListMap(
         collectDefs(tpe).map{
           case s:MethodSymbol =>
@@ -149,7 +149,7 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
   /** create a new structural refinement type for the data of the record */
   def unpack[T:c.WeakTypeTag](record: Tree): Tree = {
     //q"org.cvogt.compossible.RecordLookup($record)"
-    val fields = typesByKey(firstTypeArg(record)).map{
+    val fields = extractTypesByKey(firstTypeArg(record)).map{
       case(key, tpe) => q"def ${TermName(key)} = $record.values($key).asInstanceOf[$tpe]"
     }
     q"new{..$fields}"
@@ -165,9 +165,9 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
 
   def selectMacro[K:c.WeakTypeTag]
     = {
-      val tbk = typesByKey(firstTypeArg(prefixTree))
+      val tbk = extractTypesByKey(firstTypeArg(prefixTree))
 
-      val selectedKeyValues = typesByKey(c.weakTypeTag[K].tpe)
+      val selectedKeyValues = extractTypesByKey(c.weakTypeTag[K].tpe)
       selectedKeyValues.foreach{
         case (key, tpe) => assert(tpe == tbk(key))
       }
@@ -185,7 +185,7 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
   def toMacro[K:c.WeakTypeTag]
     = {
       println(c.weakTypeTag[K])
-      val tbk = typesByKey(firstTypeArg(prefixTree))
+      val tbk = extractTypesByKey(firstTypeArg(prefixTree))
 
       c.weakTypeTag[K].tpe match {
         case tpe if isCaseClass(tpe) =>
@@ -219,7 +219,7 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
       }
       println(selectedTypes)
 
-      val tbk = typesByKey(firstTypeArg(prefixTree))
+      val tbk = extractTypesByKey(firstTypeArg(prefixTree))
       val defs = selectedTypes zip selectedTypes.map(tbk) map {
         case (key, tpe) => q"def ${TermName(key)}: ${tpe}"
       }
@@ -242,7 +242,7 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
       //println(collectScopes(firstTypeArg(prefixTree)))
       //println(key)
       val valueType = 
-        typesByKey(firstTypeArg(prefixTree))
+        extractTypesByKey(firstTypeArg(prefixTree))
           .get(key match {case Literal(Constant(key:String)) => key})//.tpe match {case ConstantType(Constant(key: String)) => key})
           .getOrElse{
             error(s"""Record has no key .${key}""")
@@ -311,7 +311,7 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
   def tupleMacro
     = {
       val accessors = 
-        typesByKey(firstTypeArg(prefixTree)).map{
+        extractTypesByKey(firstTypeArg(prefixTree)).map{
             case (key,valueType) => 
               lookup(q"$prefixTree.record",Literal(Constant(key)),valueType)
           }
