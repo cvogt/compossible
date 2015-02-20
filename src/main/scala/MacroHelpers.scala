@@ -40,4 +40,18 @@ trait MacroHelpers{
     = internal.refinedType( // TODO: can this be done with Quasi-Quotes?
         types.toList, internal.newScopeWith()
       )
+
+  protected def isCaseClass(tpe: Type) = tpe.typeSymbol.asInstanceOf[ClassSymbol].isCaseClass
+
+  protected def caseClassFieldsTypes(tpe: Type) = {
+    val params = tpe.decls.collectFirst {
+      case m: MethodSymbol if m.isPrimaryConstructor => m
+    }.get.paramLists.head
+
+    params.map{ field =>
+      ( field.name.toTermName.decodedName.toString,
+        field.typeSignature)
+    }    
+  }
+
 }

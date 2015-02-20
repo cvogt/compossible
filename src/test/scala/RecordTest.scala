@@ -164,14 +164,18 @@ class RecordTest extends FunSuite {
     {
       // Good Example Use Case
       case class Person(name: String, age: Int)
-      case class PersonWithDob(name: String, age: Int, dob: java.util.Date, foo: String)
+      case class PersonWithDob(name: String, age: Int, dob: java.util.Date)
       val p1 = Person("Chris",99)
       val r = Record.from(p1) &
-              Record.named(dob=new java.util.Date, toTuple="test")
-      val r3 = Record.named(dob=new java.util.Date, toTuple="test")
-      assert(r3.toTuple._2 == "test")
+              Record.named(dob=new java.util.Date)
+      val r3 = Record.named(dob=new java.util.Date)
+      //assert(r3.toTuple._2 == "test")
       val p2 = PersonWithDob.tupled(r.toTuple)
       def foo(p: PersonWithDob) = println(p)
+      foo(r.to[PersonWithDob]) // <- why does this otherwise infer Nothing?
+
+      //p1.toRecord
+      //p1 & Record.named(dob=new java.util.Date)
     };
 
     {

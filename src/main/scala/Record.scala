@@ -5,50 +5,48 @@ import scala.language.dynamics
 import scala.reflect.macros.whitebox.{Context => WhiteboxContext}
 import scala.reflect.macros.blackbox.{Context => BlackboxContext}
 
-/*
-class IsNotStruct[T]
-object IsNotStruct{
-  implicit def i: IsNotStruct[V] = macro isNotStructMacro[V]
-}
-class IsNotStructMacros(c: BlackboxContext){
-  def isNotStructMacro[V:c.WeakTypeTag] = 
-}
-*/
 // Extensible records for Scala based on intersection types
 object RecordCompletion{
-  //def updateDynamic[K <: String](key: K)(value:Any): Any = macro createMacro2[K]
   import scala.language.implicitConversions
+  /** import for IntelliJ code completion
+      Instead of whitebox macros selectDynamic member resolution,
+      switches to structural type record member resolution, which
+      uses reflection and leads to corresponding warnings.
+      Suggestion: Use this during development and remove for production. */
   implicit def unpack[T](record: Record[T]): T = macro RecordBlackboxMacros.unpackMacro[T]  
 }
 trait RecordFactory extends Dynamic{
-  //def applyDynamic[K <: String,V](key: K)(value: V)/*(implicit ev: IsNotStruct[V])*/: Record[AnyRef]
-  //  = macro RecordWhiteboxMacros.createMacro[K]
-
+  /** [whitebox] Create a record from a case class */
   def from(obj: Any): Record[AnyRef]
     = macro RecordWhiteboxMacros.fromCaseClassMacro
-
+  /** [whitebox] Create a record from a named arguments list */
   def applyDynamicNamed[T <: AnyRef](method: String)(keyValues: T*): Record[AnyRef] = macro RecordWhiteboxMacros.createManyMacro
 }
+/** [whitebox] Create a record from a named arguments list 
+    (same as Record.named but allows renaming) */
 object RecordNamed extends RecordFactory
+
+/** [blackbox] Create a record from a structural refinement type (new { ... })*/
 object Record extends RecordFactory{
   def apply[V <: AnyRef](struct: V): Record[V]
     = macro RecordBlackboxMacros.createMacro[V]
 }
 
-// TODO make invariant and use implicit conversion macro freeing items from internal map
+// Record is co-variant for structural upcasting
+// For memory efficient conversion use .select instead
 class Record[+T <: AnyRef](
   val values: Map[String, Any],
-  val struct: Any = null
+  val struct: Any = null // FIXME
 ) extends Dynamic{
   override def toString = "Record("+values.toString+")"
-
-  def to[T] = null
 
   def toTuple: Product
     = macro RecordWhiteboxMacros.tupleMacro
 
   /** like structural upcasting but removes the values of the lost fields from memory */
-  def select[S >: T <: AnyRef]: Record[S] = macro RecordBlackboxMacros.toMacro[S]
+  def select[S >: T <: AnyRef]: Record[S] = macro RecordBlackboxMacros.selectMacro[S]
+
+  def to[S]: S = macro RecordBlackboxMacros.toMacro[S]
 
   /** Combine two records into one.
       The combined one will have the keys of both. */
@@ -203,7 +201,7 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
     )"""
   }
 
-  def toMacro[K <: AnyRef:c.WeakTypeTag]
+  def selectMacro[K:c.WeakTypeTag]
     = {
       val typesByKey = keyValues2(c.prefix.tree)
 
@@ -223,7 +221,25 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
         }
       )
     }
+
+  def toMacro[K:c.WeakTypeTag]
+    = {
+      println(c.weakTypeTag[K])
+      val typesByKey = keyValues2(c.prefix.tree)
+
+      c.weakTypeTag[K].tpe match {
+        case tpe if isCaseClass(tpe) =>
+          val caseClassfields = caseClassFieldsTypes(tpe).map(_._1)
+          val recordFieldsTypes = keyValues2(c.prefix.tree)
+          println(caseClassfields)
+          val accessors = caseClassfields.map{
+            case key => lookup(c.prefix.tree,Literal(Constant(key)),recordFieldsTypes(key))
+          }
+          q"""new $tpe(..$accessors)"""
+      }
+    }
 }
+
 case class RecordLookup(r: Record[_ <: AnyRef]) extends Dynamic{
   def selectDynamic[T](key: String) = r.values(key).asInstanceOf[T]
 }
@@ -349,19 +365,11 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordMacroHelpers{
   def fromCaseClassMacro(obj: Tree)
     = {
       val tpe = obj.tpe.widen.dealias
-      assert(tpe.typeSymbol.asInstanceOf[ClassSymbol].isCaseClass)
+      assert(isCaseClass(tpe))
 
-      val params =
-        tpe.decls.collectFirst {
-          case m: MethodSymbol if m.isPrimaryConstructor => m
-        }.get.paramLists.head
-      
-      val names = params.map{ field =>
-        ( field.name.toTermName.decodedName.toString,
-          field.typeSignature)
-      }
+      val names = caseClassFieldsTypes(tpe)
 
-      val keyValues = names.map{
+      val keyValues = caseClassFieldsTypes(tpe).map{
         case (name,tpe) => (
           q"""${Constant(name)} -> ${obj}.${TermName(name)}"""
         )
