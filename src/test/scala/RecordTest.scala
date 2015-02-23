@@ -194,7 +194,7 @@ class RecordTest extends FunSuite {
 
     { // contrast what you can and can't do with a map
       val m = Map[String, Any](
-        "name" -> "Chris", "age" -> 99)
+        ("name", "Chris"), ("age", 99))
 
       assert("Chris" === m("name"))
       assert(99 === m("age"))
@@ -229,5 +229,11 @@ class RecordTest extends FunSuite {
       (name: String, age: Int, dob: java.util.Date)
     };
     */
+    ;{
+      val r = (org.cvogt.compossible.Record.named(dob = new java.util.Date))
+      //assert("Chris" === r.name)
+      //assert(99 === r.age)
+      identity(r.dob: java.util.Date)
+    }
   }
 }

@@ -24,5 +24,5 @@ class TMap[+T] private(private val values: List[(Type, Any)]) {
 
 object TMap {
   def apply[T](values: T)(implicit tt: TypeTag[T]) =
-    new TMap[T](List(tt.tpe -> values))
+    new TMap[T](List((tt.tpe, values)))
 }

@@ -10,8 +10,7 @@ object MyBuild extends Build{
       scalaVersion := "2.11.5",
       description := "Composable Records and type-indexed Maps for Scala",
       libraryDependencies ++= Seq(
-        "org.scalatest" %% "scalatest" % "2.2.4" % "test",
-        "org.scalautils" %% "scalautils" % "2.1.5" % "test"
+        "org.scalatest" %% "scalatest" % "2.2.4" % "test"
       ),
       libraryDependencies <+= scalaVersion(
         "org.scala-lang" % "scala-reflect" % _ //% "optional"

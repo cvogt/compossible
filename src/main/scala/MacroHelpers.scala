@@ -25,7 +25,7 @@ trait MacroHelpers{
   def tpe[T: c.WeakTypeTag] = c.weakTypeTag[T].tpe
   def defTree  = (key: String, tpe: Type) => q"def ${TermName(key)}: ${tpe}"
   def defAssignTree  = (key: String, value: Tree) => q"def ${TermName(key)} = ${value}"
-  def pairTree = (key: String, value: Tree) => q"$key -> $value"
+  def pairTree = (key: String, value: Tree) => q"($key, $value)"
   def constant = (key: String) => Literal(Constant(key))
 
   protected def prefixTypeArg
@@ -47,9 +47,28 @@ trait MacroHelpers{
         types.toList, internal.newScopeWith()
       )
 
-  protected def isCaseClass(tpe: Type) = tpe.typeSymbol.asInstanceOf[ClassSymbol].isCaseClass
+  protected def isCaseClass(tpe: Type)
+    = tpe.typeSymbol.isClass && tpe.typeSymbol.asClass.isCaseClass
 
-  protected def caseClassFieldsTypes(tpe: Type) = {
+
+  /*protected def isStructuralRefinementType(obj: Tree)
+    = obj match {
+        case q"new{...}" => true // FIXME: this is too imprecise
+        case _ => false
+      }*/
+  protected def isStructuralRefinementType(obj: Type) = {
+    obj match {
+      case RefinedType(List(TypeRef(ThisType(pkgSym), aliasSym, List())), _)
+        if pkgSym.name == TypeName("scala")
+           && aliasSym.name == TypeName("AnyRef")
+         => true
+      case TypeRef(NoPrefix, classSym, List())
+        if classSym.name == TypeName("$anon") => true
+      case _ => false
+    }
+  }
+
+  protected def caseClassFieldsTypes(tpe: Type): Map[String, Type] = {
     val params = tpe.decls.collectFirst {
       case m: MethodSymbol if m.isPrimaryConstructor => m
     }.get.paramLists.head
