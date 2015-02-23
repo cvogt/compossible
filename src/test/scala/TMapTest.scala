@@ -73,10 +73,12 @@ class NativeTest extends FunSuite{
     }
     def use[T:TypeTag,R](f: T => R): TMap[T] => R = (c: TMap[T]) => f(c[T])
 
-    val f: TMap[Database with Logger] => Unit
+    val f
       = for{
         _ <- use{db: Database => db.query}
         _ <- use{logger: Logger => logger.log}
       } yield ()
+
+    val f2: TMap[Database with Logger] => Unit = f
   }
 }
