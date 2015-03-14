@@ -25,7 +25,12 @@ class RecordTest2 extends FunSuite {
         assert(99 === r.age)
         identity(r.dob: java.util.Date)
       };{
-}/*
+        type Person = R[{
+          def name: String
+          def age: Int
+        }]
+        val person = R.named(name="Chris", age=99)
+        val r = person With R.named(dob = new java.util.Date)
   //      val r: Person with     {def dob: java.util.Date}
   //           = person With new {def dob= java.util.Date}
 
@@ -46,6 +51,7 @@ class RecordTest2 extends FunSuite {
         assert(99 === p2.age)
         identity(p2.dob: java.util.Date)
 
+}/*
         def foo(p: PersonWithDob) = {
           identity(p.name)
           p
