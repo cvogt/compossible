@@ -142,9 +142,10 @@ class syntaxMacros(val c: WhiteboxContext) extends RecordWhiteboxMacrosTrait{
     //println("<")
     t
   }
+
   def isConvertibleToRecord[T:c.WeakTypeTag] = {
     val T = tpe[T]
-    isCaseClass(T) || isStructuralRefinementType(T)
+    isCaseClass(T) || isStructuralRefinementType(T) || isRecord(T)
   }
   def toRecord = {
     prefixTree match {
@@ -177,7 +178,7 @@ class syntaxMacros(val c: WhiteboxContext) extends RecordWhiteboxMacrosTrait{
 /** [blackbox] Create a record from a structural refinement type (new { ... })*/
 object Record{
   /** [whitebox] Create a record from a case class */
-  def from(obj: Any): Record[AnyRef]
+  def from(obj: Any): Any//Record[AnyRef]
     = macro RecordWhiteboxMacros.from
 
   def apply[V <: AnyRef](struct: V): Record[V]
@@ -395,6 +396,10 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordWhiteboxMacrosT
 trait RecordWhiteboxMacrosTrait extends RecordMacroHelpers{
   import c.universe._
 
+  protected def isRecord(obj: Type) = {
+    obj <:< typeOf[Record[_]]
+  }
+
   def foo(d: Tree) = q"""new {def name = "Chris"}"""
 
   /** create a new structural refinement type for the data of the record */
@@ -533,10 +538,11 @@ trait RecordWhiteboxMacrosTrait extends RecordMacroHelpers{
         newRecord(tq"{..$defs}", q"Map(..$keyValues)")
 //      case _ => error("Can't convert to Record: "+obj.toString);???
       case (obj,tpe) if isStructuralRefinementType(tpe) => apply(obj)
+      case (obj,tpe) if isRecord(tpe) => obj
       case (obj,RefinedType(List(TypeRef(ThisType(pkgSym), aliasSym, List())), _))
                 if pkgSym.name == TypeName("scala")
                    && aliasSym.name == TypeName("AnyRef") => apply(obj)
-      case (obj,tpe) => error(s"Can't conxvert ${showRaw(tpe)} + ${isStructuralRefinementType(tpe)} to Record");???
+      case (obj,tpe) => error(s"Can't convert ${showRaw(tpe)} + ${isRecord(tpe)} to Record");???
     }
   }
 }

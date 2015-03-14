@@ -1,13 +1,16 @@
-/*package org.cvogt.test.records
+package org.cvogt.test.records
 
 import org.scalautils.TypeCheckedTripleEquals._
 import org.scalatest.FunSuite
 //import org.cvogt.compossible.AutoRecords
 import org.cvogt.compossible.{Record => R}
+import org.cvogt.compossible.RecordCompletion
 //import Predef.{ArrowAssoc => _,Map,identity,println}
 case class Person(name: String, age: Int)
 case class PersonWithDob(name: String, age: Int, dob: java.util.Date)
 class RecordTest2 extends FunSuite {
+  import RecordCompletion.unpack
+
   test("basic") {
     {
       val p = new Person("Chris", 99)
@@ -22,6 +25,7 @@ class RecordTest2 extends FunSuite {
         assert(99 === r.age)
         identity(r.dob: java.util.Date)
       };{
+}/*
   //      val r: Person with     {def dob: java.util.Date}
   //           = person With new {def dob= java.util.Date}
 
@@ -137,7 +141,7 @@ class RecordTest2 extends FunSuite {
         "Chris is 99 years old and lives at NYC" ===
         new {def address = "NYC"; def name= "Chris"; def age=99}.string
       )
+*/
     }
   }
 }
-*/
