@@ -10,14 +10,20 @@ object MyBuild extends Build{
       scalaVersion := "2.11.5",
       description := "Composable Records and type-indexed Maps for Scala",
       libraryDependencies ++= Seq(
+        "org.cvogt" %% "scala-extensions" % "0.2",
         "org.scalatest" %% "scalatest" % "2.2.4" % "test"
+      ),
+      resolvers ++= Seq(
+        "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
+        "Sonatype Releases" at "https://oss.sonatype.org/service/local/staging/deploy/maven2",
+        "Sonatype Releases2" at "https://oss.sonatype.org/service/local/repositories/releases/content"
       ),
       libraryDependencies <+= scalaVersion(
         "org.scala-lang" % "scala-reflect" % _ //% "optional"
       ),
       scalacOptions ++= Seq("-feature", "-deprecation", "-unchecked"),
-      //scalacOptions ++= Seq("-Xprint:patmat", "-Xshow-phases"),
-      testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oFD"),
+      //scalacOptions ++= Seq("-Xprint:typer"),
+      //testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oFD"),
       parallelExecution := false, // <- until TMap thread-safety issues are resolved
       version := "0.2-SNAPSHOT",
       organizationName := "Jan Christopher Vogt",

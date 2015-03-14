@@ -1,4 +1,4 @@
-package org.cvogt.test.records
+/*package org.cvogt.test.records
 
 import org.scalautils.TypeCheckedTripleEquals._
 import org.scalatest.FunSuite
@@ -17,7 +17,7 @@ class RecordTest2 extends FunSuite {
         assert("Chris" === r.name)
         assert(99 === r.age)
       };{
-        val r = p With R(new{def dob = new java.util.Date})
+        val r = p ++ R(new{def dob = new java.util.Date})
         assert("Chris" === r.name)
         assert(99 === r.age)
         identity(r.dob: java.util.Date)
@@ -25,7 +25,9 @@ class RecordTest2 extends FunSuite {
   //      val r: Person with     {def dob: java.util.Date}
   //           = person With new {def dob= java.util.Date}
 
-        val r = p ++ new{def dob = new java.util.Date}
+        //RecordType name[String] & age[String] & dob[Age]
+        //val r: {def name: String; def age: Int; def dob: Date} = p & new{def dob = new java.util.Date}
+
         assert("Chris" === r.name)
         assert(99 === r.age)
         identity(r.dob: java.util.Date)
@@ -70,6 +72,72 @@ class RecordTest2 extends FunSuite {
 
       def bar(p: P) = p.name
       // assert("Chris" === bar(p))
+    /*
+    };{
+
+      type FooArgs = Record[{name: String; age: Int}]
+      def foo(r: FooArgs) = s"${r.name} is ${r.age} years old"
+
+      def bar(s: FooArgs with Record{address: String})
+        = foo(s) + " and lives at "+address
+    };{
+
+      type FooArgs = {def name: String; def age: Int}
+      def foo(r: FooArgs) = s"${r.name} is ${r.age} years old"
+
+      type BarArgs = {address: String}
+      def bar(r: FooArgs with BarArgs)
+        = foo(r) + " and lives at " + r.address*/
+    };{
+      type FooArgs = {def name: String; def age: Int}
+      case class Foo(r: FooArgs){
+        override def toString = s"${r.name} is ${r.age} years old"
+      }      
+    };{
+      type FooArgs = {def name: String; def age: Int}
+      class Foo(r: FooArgs){
+        override def toString = s"${r.name} is ${r.age} years old"
+      }
+
+      type BarArgs = {def address: String}
+      class Bar(r: FooArgs with BarArgs) extends Foo(r){
+        override def toString = super.toString + " and lives at " + r.address
+      }
+    };{
+      type Foo = {def name: String; def age: Int}
+      @inline
+      def Foo(r: Foo) = new FooMethods(r)
+      implicit class FooMethods(val r: Foo) extends AnyVal{
+        import r._
+        def string = s"${name} is ${age} years old"
+      }
+
+      type Bar = Foo{def address: String}
+      implicit class BarMethods(val r: Bar) extends AnyVal{
+        def string = Foo(r).string + " and lives at " + r.address
+      }
+      assert(
+        "Chris is 99 years old and lives at NYC" ===
+        new {def address = "NYC"; def name= "Chris"; def age=99}.string
+      )
+    };{
+      type Foo = Record[{def name: String; def age: Int}]
+      @inline
+      def Foo(r: Foo) = new FooMethods(r)
+      implicit class FooMethods(r: Foo){
+        import r._
+        def string = s"${name} is ${age} years old"
+      }
+
+      type Bar = Foo with Record[{def address: String}]
+      implicit class BarMethods(r: Bar) extends FooMethods(r){
+        def string = super.string + " and lives at " + r.address
+      }
+      assert(
+        "Chris is 99 years old and lives at NYC" ===
+        new {def address = "NYC"; def name= "Chris"; def age=99}.string
+      )
     }
   }
 }
+*/

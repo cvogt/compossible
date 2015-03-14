@@ -276,21 +276,6 @@ trait RecordMacroHelpers extends MacroHelpers{
   protected def lookupTree(record: Tree, key: String, valueType: Type)
     = q"$record.values(${constant(key)}).asInstanceOf[$valueType]"
 
-  /** Collects all definition symbols from the the refinement bodies
-      of the involved types.
-      E.g. Seq(def name: String, def age:Int)
-      for  {def name: String} with {def age: Int}
-      
-      Warning: not tail recursive, could blow the stack */
-  protected final def collectDefs(tpe: Type, seq: Seq[Symbol] = Seq()): Seq[Symbol] = {
-    tpe match {
-      case RefinedType(Seq(tpe),scope) => collectDefs(tpe,seq++scope.toSeq)
-      case RefinedType(Seq(),scope) => scope.toSeq
-      case RefinedType(tpes,scope) if scope.isEmpty => tpes.map(collectDefs(_)).reduce(_ ++ _)
-      case other => seq
-    }
-  }
-
   /** map from field names to types */
   protected def extractTypesByKey(tpe: Type): Map[String, Type]
     = ListMap(
