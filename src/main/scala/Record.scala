@@ -6,7 +6,26 @@ import scala.language.dynamics
 import scala.reflect.macros.whitebox.{Context => WhiteboxContext}
 import scala.reflect.macros.blackbox.{Context => BlackboxContext}
 import scala.reflect.runtime.{universe => refl}
+import org.cvogt.scala.constraint._
 
+/**
+see scala-extensions
+*/
+class :=[T,Q]
+trait Default_:={
+  /** Ignore default */
+  implicit def useProvided[Provided,Default] = new :=[Provided,Default]
+}
+object := extends Default_:={
+  /** Infer type argument to default */
+  implicit def useDefault[Default] = new :=[Default,Default]
+}
+/*
+object Foo{
+  import reflect._
+  def foo[T](implicit default: T := AnyRef, ct: ClassTag[T]) = ct.toString
+}
+*/
 // Extensible records for Scala based on intersection types
 object RecordCompletion{
   import scala.language.implicitConversions
@@ -176,13 +195,17 @@ class syntaxMacros(val c: WhiteboxContext) extends RecordWhiteboxMacrosTrait{
 
 //trait Structural
 /** [blackbox] Create a record from a structural refinement type (new { ... })*/
-object Record{
+object Record extends Dynamic{
   /** [whitebox] Create a record from a case class */
   def from(obj: Any): Any//Record[AnyRef]
     = macro RecordWhiteboxMacros.from
 
-  def apply[V <: AnyRef](struct: V): Record[V]
-    = macro RecordBlackboxMacros.apply[V]
+  def applyDynamic[V <: AnyRef](method: String)(struct: V): Record[V]
+    = macro RecordBlackboxMacros.applyMacro[V]
+
+  /** [whitebox] Create a record from a named arguments list */
+    def applyDynamicNamed[T](method: String)(keysValues: (String, Any)*)(implicit d: T := AnyRef): Record[T]
+      = macro RecordWhiteboxMacros.createForType2[T]
 
   /** [whitebox] Create a record from a named arguments list 
       (object with apply to support named arguments */
@@ -197,7 +220,7 @@ object Record{
   object typed extends Dynamic{
     /** [whitebox] Create a record matching the given type */
     def applyDynamicNamed[T](method: String)(keysValues: Any*): Record[T]
-      = macro RecordBlackboxMacros.createForType[T]
+      = macro RecordWhiteboxMacros.createForType[T]
   }
 
   implicit class RecordMethods[+T <: AnyRef](val record: Record[T]){
@@ -323,6 +346,7 @@ trait RecordMacroHelpers extends MacroHelpers{
     newRecord( tq"AnyRef{..$defs}", q"Map(..$values)" )
   }
 
+  def applyMacro[K](method: Tree)(struct: Tree) = apply[K](struct)
   def apply[K](struct: Tree) = {
     //println(struct)
     //println(struct.tpe)
@@ -377,6 +401,11 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
         q"""new $tpe(..$accessors)"""
     }
   }
+}
+
+class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordWhiteboxMacrosTrait
+trait RecordWhiteboxMacrosTrait extends RecordMacroHelpers{
+  import c.universe._
 
   def createForType[T:c.WeakTypeTag](method: Tree)(keysValues: Tree*) = {
     createRecord{
@@ -390,11 +419,13 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
       (positionalKeys zip positionalValues).toSeq ++ namedArgs
     }
   }
-}
 
-class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordWhiteboxMacrosTrait
-trait RecordWhiteboxMacrosTrait extends RecordMacroHelpers{
-  import c.universe._
+  def createForType2[T:c.WeakTypeTag](method: Tree)(keysValues: Tree*)(d: Tree) = {
+    if(c.weakTypeOf[T] =:= c.weakTypeOf[AnyRef])
+      createFromNamedArguments(method)(keysValues:_*)
+    else
+      createForType[T](method)(keysValues:_*)
+  }
 
   protected def isRecord(obj: Type) = {
     obj <:< typeOf[Record[_]]

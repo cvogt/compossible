@@ -127,11 +127,40 @@ class RecordTest extends FunSuite {
       def foo(record: Record[Person]) = record.name
       foo(personWithCar)
       foo(personWithCar.select)
-      Record.typed[Person](
+      val r1 = Record[Person](
         "Chris",
         age = 99,
         dob = new java.util.Date
       )
+      r1.name
+      r1.age
+
+      val r2 = Record(
+        name = "Chris",
+        age = 99,
+        dob = new java.util.Date
+      )
+      r2.name
+      r2.age
+
+      val r3 = Record[Person](
+        name = "Chris",
+        age = 99,
+        dob = new java.util.Date
+      )
+
+      r3.name
+      r3.age
+
+      val r4 = Record[Person](
+        "Chris",
+        dob = new java.util.Date,
+        age = 99
+      )
+
+      r4.name
+      r4.age
+
 
       def foo2(record: Record[{
         def name: String
