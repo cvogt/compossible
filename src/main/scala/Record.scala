@@ -15,7 +15,8 @@ object RecordCompletion{
       switches to structural type record member resolution, which
       uses reflection and leads to corresponding warnings.
       Suggestion: Use this during development and remove for production. */
-  implicit def unpack[T](record: Record[T]): T = macro RecordBlackboxMacros.unpack[T]  
+  implicit def unpack[T](record: Record[T]): T = macro RecordWhiteboxMacros.unpack[T]  
+  implicit def foo[T <: AnyRef](d: Option[Double]): T = macro RecordWhiteboxMacros.foo
 }
 // TODO: implicit conversion to structural type with macro members for reflection free access
 object syntax{
@@ -240,20 +241,30 @@ object Record{
 // Record is co-variant for structural upcasting
 // For memory efficient conversion use .select instead
 class Record[+T <: AnyRef](
-  val values: Map[String, Any],
-  val struct: Any = null // FIXME
-) extends Dynamic{
+  val values: Map[String, Any]
+) extends /*AnyVal with Dynamic*/{
+  outer =>
   override def toString = "Record("+values.toString+")"
 
   def selectDynamic[K <: String](key: K): Any
     = macro RecordWhiteboxMacros.lookup[K]
 
-  def applyDynamic[K <: String](key: K)(value:Any): Record[AnyRef]
-    = macro RecordWhiteboxMacros.appendField[K]
+  /*
+  def record = this
+  object apply extends Dynamic{
+    val record = outer
+    def applyDynamic[K <: String](key: K)(value:Any): Record[AnyRef]
+      = macro RecordWhiteboxMacros.appendField[K]
+  }
+  */
 
-  // TODO: make typesafe with macros
-  def applyDynamicNamed(method: String)(keyValues: (String, Any)*): Record[T]
-    = macro RecordBlackboxMacros.copy[T]
+  object copy extends Dynamic{
+    val record = outer
+    // TODO: make typesafe with macros
+    def applyDynamicNamed(method: String)(keyValues: (String, Any)*): Record[T]
+      = macro RecordBlackboxMacros.copy[T]
+  }
+
 
   // somehow conflicted with applyDynamic, etc.
   //def updateDynamic[K <: String](key: K)(value:Any): Record[T]
@@ -264,7 +275,7 @@ class Record[+T <: AnyRef](
 trait RecordMacroHelpers extends MacroHelpers{
   val c: BlackboxContext
   import c.universe._
-  val pkg = q"org.cvogt.compossible"
+  val pkg = q"_root_.org.cvogt.compossible"
   val Record = tq"$pkg.Record"
   val RecordCompanion = q"$pkg.Record"
 
@@ -340,27 +351,18 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
     val allTypesByKey      = extractTypesByKey(firstTypeArg(prefixTree))
     val selectedTypesByKey = extractTypesByKey(tpe[K])
     selectedTypesByKey.foreach{
-      case (key, tpe) if tpe == allTypesByKey(key) =>
+      case (key, tpe) if tpe =:= allTypesByKey(key) =>
     }
     val selectedKeys = selectedTypesByKey.keys.toSeq
     selectHelper(selectedKeys)
   }
 
-  /** create a new structural refinement type for the data of the record */
-  def unpack[T:c.WeakTypeTag](record: Tree): Tree = {
-    //q"org.cvogt.compossible.RecordLookup($record)"
-    val accessors = extractTypesByKey(firstTypeArg(record)).map{
-      case(key, tpe) => defAssignTree(key, lookupTree(record, key, tpe))
-    }
-    q"new{..$accessors}"
-  }
-
   def copy[T:c.WeakTypeTag](method: Tree)(keyValues: Tree*) = {
-    method match {
+    /*method match {
       case Literal(Constant("copy")) =>
-      case _ => error("no method found ${constantString(method)}")
-    }
-    newRecord(typeTree[T], q"$prefixTree.values ++ Map(..$keyValues)")
+      case _ => error(s"no method found ${constantString(method)}")
+    }*/
+    newRecord(typeTree[T], q"$prefixTree.record.values ++ Map(..$keyValues)")
   }
 
   def to[K:c.WeakTypeTag] = {
@@ -393,6 +395,16 @@ class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordWhiteboxMacrosT
 trait RecordWhiteboxMacrosTrait extends RecordMacroHelpers{
   import c.universe._
 
+  def foo(d: Tree) = q"""new {def name = "Chris"}"""
+
+  /** create a new structural refinement type for the data of the record */
+  def unpack[T:c.WeakTypeTag](record: Tree): Tree = {
+    //q"org.cvogt.compossible.RecordLookup($record)"
+    val accessors = extractTypesByKey(firstTypeArg(record)).map{
+      case(key, tpe) => defAssignTree(key, lookupTree(record, key, tpe))
+    }
+    q"new{..$accessors}"
+  }
 
   def ++[T:c.WeakTypeTag,O:c.WeakTypeTag](other: Tree)(evidence$5: Tree) = {
     //println(prefixTree)
@@ -422,11 +434,15 @@ trait RecordWhiteboxMacrosTrait extends RecordMacroHelpers{
 
   def appendField[K <: String:c.WeakTypeTag](key: Tree)(value: Tree) = {
     val record = createRecord(Seq((constantString(key), value)))
-    q"$prefixTree With $record"
+    q"$prefixTree.record With $record"
   }
 
   def lookup[K <: String:c.WeakTypeTag](key: Tree)
     = {
+      val keyString = constantString(key)
+      val ident = TermName(keyString)
+      q"_root_.org.cvogt.compossible.RecordCompletion.unpack($prefixTree).$ident"
+      /*
       val keyString = constantString(key)
       val valueType = 
         extractTypesByKey(firstTypeArg(prefixTree))
@@ -436,6 +452,7 @@ trait RecordWhiteboxMacrosTrait extends RecordMacroHelpers{
             ???
           }
       lookupTree(prefixTree, keyString, valueType)
+      */
     }
 /*
   def value: c.Expr[Any]

@@ -11,11 +11,18 @@ import scala.language.postfixOps
 // SLICK STUFF
 
 class RecordTest extends FunSuite {
+  import RecordCompletion.unpack
+
   val RN = Record.named
 
   test("basic") {
+    import RecordCompletion.foo
+    assert("Chris" === foo[{def name: String}](Some(5.0)).name)
+
     val r: Record[{def name: String}]
       = Record.named(name="Chris")
+
+    assert("Chris" === RecordCompletion.unpack(r).name)
 
     assert("Chris" === r.name)
 
@@ -80,6 +87,16 @@ class RecordTest extends FunSuite {
       } yield p(select name & age) &
               c(select.owner)
 
+      val merged2 = for{
+        p <- List(person)
+        c <- List(car) if c.owner == p.name
+      } yield p.select[{
+        def name: String//: Column[String]
+        def age: Int //: Column[Int]
+      }] & c.select[{
+        def owner: String //Column[String]
+      }]
+
       merged.map{
         r =>
           assert(r.name === "Chris")
@@ -99,7 +116,8 @@ class RecordTest extends FunSuite {
                 dob =new java.util.Date(),
                 car =Record.named(owner="Chris",model="Mercedes"))
 
-      assert("Chris" === personWithCar.car.owner)
+      val c = personWithCar.car
+      assert("Chris" === c.owner)
 
       type Person = {
         def name: String
