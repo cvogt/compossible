@@ -4,13 +4,10 @@ import org.scalautils.TypeCheckedTripleEquals._
 import org.scalatest.FunSuite
 //import org.cvogt.compossible.AutoRecords
 import org.cvogt.compossible.{Record => R}
-import org.cvogt.compossible.RecordCompletion
 //import Predef.{ArrowAssoc => _,Map,identity,println}
 case class Person(name: String, age: Int)
 case class PersonWithDob(name: String, age: Int, dob: java.util.Date)
 class RecordTest2 extends FunSuite {
-  import RecordCompletion.unpack
-
   test("basic") {
     {
       val p = new Person("Chris", 99)

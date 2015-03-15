@@ -1,8 +1,6 @@
 package org.cvogt.compossible
 
 import collection.immutable.ListMap
-import scala.language.experimental.macros
-import scala.language.dynamics
 import scala.reflect.macros.whitebox.{Context => WhiteboxContext}
 import scala.reflect.macros.blackbox.{Context => BlackboxContext}
 import scala.reflect.runtime.{universe => refl}
@@ -24,23 +22,8 @@ final class Struct[T]
 object Struct{
   implicit def isStruct[T]: Struct[T] = macro RecordBlackboxMacros.isStructImpl[T]
 }
-/*
-object Foo{
-  import reflect._
-  def foo[T](implicit default: T := AnyRef, ct: ClassTag[T]) = ct.toString
-}
-*/
 // Extensible records for Scala based on intersection types
-object RecordCompletion{
-  import scala.language.implicitConversions
-  /** import for IntelliJ code completion
-      Instead of whitebox macros selectDynamic member resolution,
-      switches to structural type record member resolution, which
-      uses reflection and leads to corresponding warnings.
-      Suggestion: Use this during development and remove for production. */
-  implicit def unpack[T](record: Record[T]): T = macro RecordWhiteboxMacros.unpack[T]  
-  implicit def foo[T <: AnyRef](d: Option[Double]): T = macro RecordWhiteboxMacros.foo
-}
+
 // TODO: implicit conversion to structural type with macro members for reflection free access
 object syntax{
   import scala.language.implicitConversions
@@ -200,6 +183,8 @@ class syntaxMacros(val c: WhiteboxContext) extends RecordWhiteboxMacrosTrait{
 //trait Structural
 /** [blackbox] Create a record from a structural refinement type (new { ... })*/
 object Record extends Dynamic{
+  implicit def toAnonymousClass[T](record: Record[T]): T = macro RecordWhiteboxMacros.toAnonymousClass[T]  
+  
   /** [whitebox] Create a record from a case class */
   def from(obj: Any): Any//Record[AnyRef]
     = macro RecordWhiteboxMacros.from
@@ -225,7 +210,8 @@ object Record extends Dynamic{
     /** [whitebox] Create a record matching the given type */
     def applyDynamicNamed[T <: AnyRef](method: String)(keysValues: (String, Any)*): Record[T]
       = macro RecordWhiteboxMacros.createForType[T]
-
+  }
+  object positional extends Dynamic{
     def applyDynamic[T <: AnyRef](method: String)(keysValues: Any*): Record[T]
       = macro RecordWhiteboxMacros.createForType[T]
   }
@@ -455,10 +441,8 @@ trait RecordWhiteboxMacrosTrait extends RecordMacroHelpers{
     obj <:< typeOf[Record[_]]
   }
 
-  def foo(d: Tree) = q"""new {def name = "Chris"}"""
-
   /** create a new structural refinement type for the data of the record */
-  def unpack[T:c.WeakTypeTag](record: Tree): Tree = {
+  def toAnonymousClass[T:c.WeakTypeTag](record: Tree): Tree = {
     //q"org.cvogt.compossible.RecordLookup($record)"
     val accessors = extractTypesByKey(firstTypeArg(record)).map{
       case(key, tpe) => defAssignTree(key, lookupTree(record, key, tpe))
@@ -501,7 +485,7 @@ trait RecordWhiteboxMacrosTrait extends RecordMacroHelpers{
     = {
       val keyString = constantString(key)
       val ident = TermName(keyString)
-      q"_root_.org.cvogt.compossible.RecordCompletion.unpack($prefixTree).$ident"
+      q"_root_.org.cvogt.compossible.Record.toAnonymousClass($prefixTree).$ident"
       /*
       val keyString = constantString(key)
       val valueType = 

@@ -1,7 +1,6 @@
 package org.cvogt.compossible
 import collection.immutable.ListMap
 import scala.reflect.macros.blackbox.Context
-import scala.language.experimental.macros
 
 trait MacroHelpers{
   val c: Context

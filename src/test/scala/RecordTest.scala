@@ -11,16 +11,9 @@ import scala.language.postfixOps
 // SLICK STUFF
 
 class RecordTest extends FunSuite {
-  import RecordCompletion.unpack
-
   test("basic") {
-    import RecordCompletion.foo
-    assert("Chris" === foo[{def name: String}](Some(5.0)).name)
-
     val r: Record[{def name: String}]
       = Record(name="Chris")
-
-    assert("Chris" === RecordCompletion.unpack(r).name)
 
     assert("Chris" === r.name)
 
@@ -159,7 +152,7 @@ class RecordTest extends FunSuite {
       r4.name
       r4.age
 
-      val r5 = Record.typed[Person](
+      val r5 = Record.positional[Person](
         "Chris",
         99,
         new java.util.Date

@@ -21,7 +21,13 @@ object MyBuild extends Build{
       libraryDependencies <+= scalaVersion(
         "org.scala-lang" % "scala-reflect" % _ //% "optional"
       ),
-      scalacOptions ++= Seq("-feature", "-deprecation", "-unchecked"),
+      scalacOptions ++= Seq(
+        "-feature", "-deprecation", "-unchecked",
+        "-language:implicitConversions",
+        "-language:experimental.macros",
+        "-language:postfixOps",
+        "-language:dynamics"
+      ),
       //scalacOptions ++= Seq("-Xprint:typer"),
       //testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oFD"),
       parallelExecution := false, // <- until TMap thread-safety issues are resolved
