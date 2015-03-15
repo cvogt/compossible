@@ -13,14 +13,12 @@ import scala.language.postfixOps
 class RecordTest extends FunSuite {
   import RecordCompletion.unpack
 
-  val RN = Record.named
-
   test("basic") {
     import RecordCompletion.foo
     assert("Chris" === foo[{def name: String}](Some(5.0)).name)
 
     val r: Record[{def name: String}]
-      = Record.named(name="Chris")
+      = Record(name="Chris")
 
     assert("Chris" === RecordCompletion.unpack(r).name)
 
@@ -29,13 +27,13 @@ class RecordTest extends FunSuite {
     val r2 = r.copy(name = "Miguel")
     assert("Miguel" === r2.name)
 
-    val r3 = r2 & Record.named(age=99)
+    val r3 = r2 & Record(age=99)
 
     assert("Miguel" === r3.name)
     assert(99 === r3.age)
 
     {
-      val person = RN(
+      val person = Record(
         name = "Chris",
         age = 99,
         dob = new java.util.Date()
@@ -61,7 +59,7 @@ class RecordTest extends FunSuite {
     (name: String, age: Int, dob: java.util.Date)
 
 
-    val car = Record.named(owner="Chris",
+    val car = Record(owner="Chris",
                      model="Mercedes")
 
     {
@@ -111,10 +109,10 @@ class RecordTest extends FunSuite {
 
     {
       val personWithCar =
-        Record.named(name="Chris",
+        Record(name="Chris",
                 age =99,
                 dob =new java.util.Date(),
-                car =Record.named(owner="Chris",model="Mercedes"))
+                car =Record(owner="Chris",model="Mercedes"))
 
       val c = personWithCar.car
       assert("Chris" === c.owner)
@@ -161,6 +159,22 @@ class RecordTest extends FunSuite {
       r4.name
       r4.age
 
+      val r5 = Record.typed[Person](
+        "Chris",
+        99,
+        new java.util.Date
+      )
+
+      r5.name
+      r5.age
+
+      assertTypeError("""
+        Record.typed[Person](
+          "Chris",
+          new java.util.Date,
+          99
+        )
+      """)
 
       def foo2(record: Record[{
         def name: String
@@ -194,23 +208,23 @@ class RecordTest extends FunSuite {
       case class PersonWithDob(name: String, age: Int, dob: java.util.Date)
       val p1 = Person("Chris",99)
       val r = Record.from(p1) &
-              Record.named(dob=new java.util.Date)
-      val r3 = Record.named(dob=new java.util.Date)
+              Record(dob=new java.util.Date)
+      val r3 = Record(dob=new java.util.Date)
       //assert(r3.toTuple._2 == "test")
       val p2 = PersonWithDob.tupled(r.toTuple)
       def foo(p: PersonWithDob) = p
       foo(r.to[PersonWithDob]) // <- why does this otherwise infer Nothing?
 
       //p1.toRecord
-      //p1 & Record.named(dob=new java.util.Date)
+      //p1 & Record(dob=new java.util.Date)
     };
 
     {
       val r = 
         //WhiteRecord(name="Chris") With
-        Record.named(name="Chris") With
-        Record.named(age=99) With
-        Record.named(dob=new java.util.Date)
+        Record(name="Chris") With
+        Record(age=99) With
+        Record(dob=new java.util.Date)
       
       val name = r.name
       val age = r.age
@@ -277,7 +291,7 @@ class RecordTest extends FunSuite {
     };
     */
     ;{
-      val r = (org.cvogt.compossible.Record.named(dob = new java.util.Date))
+      val r = (org.cvogt.compossible.Record(dob = new java.util.Date))
       //assert("Chris" === r.name)
       //assert(99 === r.age)
       identity(r.dob: java.util.Date)

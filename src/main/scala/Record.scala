@@ -7,18 +7,22 @@ import scala.reflect.macros.whitebox.{Context => WhiteboxContext}
 import scala.reflect.macros.blackbox.{Context => BlackboxContext}
 import scala.reflect.runtime.{universe => refl}
 import org.cvogt.scala.constraint._
+import org.cvogt.scala.constraint.boolean.!
 
 /**
 see scala-extensions
 */
 class :=[T,Q]
-trait Default_:={
-  /** Ignore default */
+object :={
+  /** Ignore Default */
   implicit def useProvided[Provided,Default] = new :=[Provided,Default]
-}
-object := extends Default_:={
-  /** Infer type argument to default */
+  /** Infer type argument as Default */
   implicit def useDefault[Default] = new :=[Default,Default]
+}
+
+final class Struct[T]
+object Struct{
+  implicit def isStruct[T]: Struct[T] = macro RecordBlackboxMacros.isStructImpl[T]
 }
 /*
 object Foo{
@@ -200,12 +204,12 @@ object Record extends Dynamic{
   def from(obj: Any): Any//Record[AnyRef]
     = macro RecordWhiteboxMacros.from
 
-  def applyDynamic[V <: AnyRef](method: String)(struct: V): Record[V]
+  def applyDynamic[V](method: String)(struct: V): Record[V]
     = macro RecordBlackboxMacros.applyMacro[V]
 
   /** [whitebox] Create a record from a named arguments list */
-    def applyDynamicNamed[T](method: String)(keysValues: (String, Any)*)(implicit d: T := AnyRef): Record[T]
-      = macro RecordWhiteboxMacros.createForType2[T]
+  def applyDynamicNamed[T](method: String)(keysValues: (String, Any)*)(implicit d: T := AnyRef): Record[T]
+    = macro RecordWhiteboxMacros.createForType2[T]
 
   /** [whitebox] Create a record from a named arguments list 
       (object with apply to support named arguments */
@@ -219,7 +223,10 @@ object Record extends Dynamic{
       (object with apply to support named arguments */
   object typed extends Dynamic{
     /** [whitebox] Create a record matching the given type */
-    def applyDynamicNamed[T](method: String)(keysValues: Any*): Record[T]
+    def applyDynamicNamed[T <: AnyRef](method: String)(keysValues: (String, Any)*): Record[T]
+      = macro RecordWhiteboxMacros.createForType[T]
+
+    def applyDynamic[T <: AnyRef](method: String)(keysValues: Any*): Record[T]
       = macro RecordWhiteboxMacros.createForType[T]
   }
 
@@ -372,6 +379,14 @@ trait RecordMacroHelpers extends MacroHelpers{
 class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
   import c.universe._
 
+  def isStructImpl[T:c.WeakTypeTag] = {
+    val T = c.weakTypeOf[T]
+    println(T)
+    println(isStructuralRefinementType(T))
+    assert(isStructuralRefinementType(T))
+    q"new _root_.org.cvogt.compossible.Struct[$T]"
+  }
+
   def select[K:c.WeakTypeTag] = {
     val allTypesByKey      = extractTypesByKey(firstTypeArg(prefixTree))
     val selectedTypesByKey = extractTypesByKey(tpe[K])
@@ -408,16 +423,25 @@ trait RecordWhiteboxMacrosTrait extends RecordMacroHelpers{
   import c.universe._
 
   def createForType[T:c.WeakTypeTag](method: Tree)(keysValues: Tree*) = {
-    createRecord{
-      val keysValuesSplit = keysValues.map(splitTreePair).map{
-        case (keyTree, value) => (constantString(keyTree), value)
+    val keysValuesSplit =     
+      keysValues.head match {
+        case q"($key, $value)" => keysValues.map(splitTreePair).map{
+          case (keyTree, value) => (constantString(keyTree), value)
+        }
+        case other => List.fill(keysValues.size)("") zip keysValues
       }
-      val positionalValues = keysValuesSplit.takeWhile(_._1 == "").map(_._2)
-      val positionalKeys = extractTypesByKey(tpe[T].dealias).take(positionalValues.size).keys
-      val namedArgs = keysValuesSplit.dropWhile(_._1 == "")
-      if(namedArgs.exists(_._1 == "")) error("positional after named argument")
-      (positionalKeys zip positionalValues).toSeq ++ namedArgs
+    val positionalValues = keysValuesSplit.takeWhile(_._1 == "").map(_._2)
+    val expected = extractTypesByKey(tpe[T].dealias).take(positionalValues.size)
+    val positionalKeys = expected.keys
+    val namedArgs = keysValuesSplit.dropWhile(_._1 == "")
+    if(namedArgs.exists(_._1 == "")) error("positional after named argument not allowed")
+    val kvs = (positionalKeys zip positionalValues).toSeq ++ namedArgs
+    (expected.values zip kvs).foreach{ case (tpe,(key,value)) =>
+      if(!(value.tpe <:< tpe)){
+        error(s"""\nFor def $key\nexpected: $tpe\nfound:    ${value.tpe}""")
+      }
     }
+    createRecord(kvs)
   }
 
   def createForType2[T:c.WeakTypeTag](method: Tree)(keysValues: Tree*)(d: Tree) = {
