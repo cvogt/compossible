@@ -5,18 +5,7 @@ import scala.reflect.macros.whitebox.{Context => WhiteboxContext}
 import scala.reflect.macros.blackbox.{Context => BlackboxContext}
 import scala.reflect.runtime.{universe => refl}
 import org.cvogt.scala.constraint._
-import org.cvogt.scala.constraint.boolean.!
-
-/**
-see scala-extensions
-*/
-class :=[T,Q]
-object :={
-  /** Ignore Default */
-  implicit def useProvided[Provided,Default] = new :=[Provided,Default]
-  /** Infer type argument as Default */
-  implicit def useDefault[Default] = new :=[Default,Default]
-}
+import org.cvogt.scala.:=
 
 final class Struct[T]
 object Struct{
@@ -189,6 +178,10 @@ object Record extends Dynamic{
   def from(obj: Any): Any//Record[AnyRef]
     = macro RecordWhiteboxMacros.from
 
+  implicit class toRecordConverter(val c: AnyRef){
+    def toRecord: Record[AnyRef] = macro RecordWhiteboxMacros.toRecordImpl
+  }
+
   def applyDynamic[V](method: String)(struct: V): Record[V]
     = macro RecordBlackboxMacros.applyMacro[V]
 
@@ -253,6 +246,9 @@ object Record extends Dynamic{
     // def map[E](f: T => E)
 
   }
+  import play.api.libs.json._
+  implicit def recordFormat[T <: AnyRef:Struct]: Reads[Record[T]] = 
+    macro RecordBlackboxMacros.recordFormat[T]
 }
 
 // Record is co-variant for structural upcasting
@@ -365,11 +361,25 @@ trait RecordMacroHelpers extends MacroHelpers{
 class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
   import c.universe._
 
+  def recordFormat[T:c.WeakTypeTag](x: Tree) = {
+    //println(c.weakTypeOf[T])
+    val T = c.weakTypeOf[T]
+    //println(T)
+    //println(extractTypesByKey(TypeTree(T)))
+    val fields = extractTypesByKey(T).map{
+      case (k,t) => q"""$k -> (json \ $k).as[$t]"""
+    }
+
+    val r = newRecord(TypeTree(T), q"Map(..$fields)")
+    q"new Reads[Record[$T]]{ def reads(json: JsValue) = JsSuccess($r) }"
+  }
+
   def isStructImpl[T:c.WeakTypeTag] = {
     val T = c.weakTypeOf[T]
-    println(T)
-    println(isStructuralRefinementType(T))
-    assert(isStructuralRefinementType(T))
+    //println(T)
+    //println(isStructuralRefinementType(T))
+    if(!isStructuralRefinementType(T))
+      error(s"not a struct: $T")
     q"new _root_.org.cvogt.compossible.Struct[$T]"
   }
 
@@ -407,6 +417,12 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
 class RecordWhiteboxMacros(val c: WhiteboxContext) extends RecordWhiteboxMacrosTrait
 trait RecordWhiteboxMacrosTrait extends RecordMacroHelpers{
   import c.universe._
+
+  def toRecordImpl = {
+    from(prefixTree match {
+      case q"$cls($c)" => c
+    })
+  }
 
   def createForType[T:c.WeakTypeTag](method: Tree)(keysValues: Tree*) = {
     val keysValuesSplit =     

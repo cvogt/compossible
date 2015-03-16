@@ -10,13 +10,13 @@ object MyBuild extends Build{
       scalaVersion := "2.11.5",
       description := "Composable Records and type-indexed Maps for Scala",
       libraryDependencies ++= Seq(
-        "org.cvogt" %% "scala-extensions" % "0.2",
-        "org.scalatest" %% "scalatest" % "2.2.4" % "test"
+        "org.cvogt" %% "scala-extensions" % "0.3-SNAPSHOT",
+        "org.scalatest" %% "scalatest" % "2.2.4" % "test",
+        "com.typesafe.play" %% "play-json" % "2.4.0-M1"
       ),
       resolvers ++= Seq(
-        "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
-        "Sonatype Releases" at "https://oss.sonatype.org/service/local/staging/deploy/maven2",
-        "Sonatype Releases2" at "https://oss.sonatype.org/service/local/repositories/releases/content"
+        Resolver.sonatypeRepo("releases"),
+        Resolver.sonatypeRepo("snapshots")
       ),
       libraryDependencies <+= scalaVersion(
         "org.scala-lang" % "scala-reflect" % _ //% "optional"
