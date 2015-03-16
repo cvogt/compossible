@@ -8,17 +8,6 @@ import scala.language.postfixOps
 //import scala.language.reflectiveCalls
 
 // SLICK STUFF
-
-object Foo{
-  val personWithCar =
-    Record(name="Chris",
-            age =99,
-            dob =new java.util.Date(),
-            car =Record(owner="Chris",model="Mercedes"))
-
-  val res = personWithCar.car.owner  
-}
- 
 class RecordTest extends FunSuite {
   test("basic") {
     ;{    
@@ -117,13 +106,7 @@ class RecordTest extends FunSuite {
             dob =new java.util.Date(),
             car =Record(owner="Chris",model="Mercedes"))
 
-  //personWithCar.car.owner  
-/*      import Foo.personWithCar
-      import Foo.res*/
-      /*assert("Chris" === res)*/
-
-      val c = personWithCar.car
-      assert("Chris" === c.owner)
+      assert("Chris" === personWithCar.car.owner)
 
       type Person = {
         def name: String

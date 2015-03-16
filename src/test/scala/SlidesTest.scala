@@ -354,10 +354,8 @@ val x = r.age
 val y = r.name
 assert(99 === (x:Int))
 assert("Chris" === (y:String))
-val a1 = r.addresses(0)
-val a2 = r.addresses(1)
-assert(10005 == a1.zip)
-assert(1015 == a2.zip)
+assert(10005 == r.addresses(0).zip)
+assert(1015 == r.addresses(1).zip)
 //assert(Record(name="Chris") == Record(name="Chris"))
     };{
 /*
