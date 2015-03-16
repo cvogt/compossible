@@ -10,22 +10,34 @@ import scala.language.postfixOps
 
 // SLICK STUFF
 
+object Foo{
+  val personWithCar =
+    Record(name="Chris",
+            age =99,
+            dob =new java.util.Date(),
+            car =Record(owner="Chris",model="Mercedes"))
+
+  val res = personWithCar.car.owner  
+}
+
 class RecordTest extends FunSuite {
   test("basic") {
-    val r: Record[{def name: String}]
-      = Record(name="Chris")
+    ;{    
+      val r: Record[{def name: String}]
+        = Record(name="Chris")
 
-    assert("Chris" === r.name)
+      assert("Chris" === r.name)
 
-    val r2 = r.copy(name = "Miguel")
-    assert("Miguel" === r2.name)
+      val r2 = r.copy(name = "Miguel")
+      assert("Miguel" === r2.name)
 
-    val r3 = r2 & Record(age=99)
+      val r3 = r2 & Record(age=99)
 
-    assert("Miguel" === r3.name)
-    assert(99 === r3.age)
+      assert("Miguel" === r3.name)
+      assert(99 === r3.age)
+    }
 
-    {
+    ;{
       val person = Record(
         name = "Chris",
         age = 99,
@@ -100,12 +112,16 @@ class RecordTest extends FunSuite {
       }
     };
 
-    {
-      val personWithCar =
-        Record(name="Chris",
-                age =99,
-                dob =new java.util.Date(),
-                car =Record(owner="Chris",model="Mercedes"))
+  val personWithCar =
+    Record(name="Chris",
+            age =99,
+            dob =new java.util.Date(),
+            car =Record(owner="Chris",model="Mercedes"))
+
+  //personWithCar.car.owner  
+/*      import Foo.personWithCar
+      import Foo.res*/
+      /*assert("Chris" === res)*/
 
       val c = personWithCar.car
       assert("Chris" === c.owner)
@@ -182,7 +198,6 @@ class RecordTest extends FunSuite {
       assert("Chris" === foo(personWithCar))
 
       //personWithCar.§.car(owner = "Miguel")
-    };
 
     /*{
       case class Person(name: String, age: Int, dob: java.util.Date)
@@ -195,7 +210,9 @@ class RecordTest extends FunSuite {
       (r.dob,())
     };*/
 
-    {
+    ;{
+      //val r = Record(new{def name = Chris; def age = 99})
+      
       // Good Example Use Case
       case class Person(name: String, age: Int)
       case class PersonWithDob(name: String, age: Int, dob: java.util.Date)

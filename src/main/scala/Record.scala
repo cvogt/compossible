@@ -323,7 +323,7 @@ trait RecordMacroHelpers extends MacroHelpers{
     val data = keysValues.map{
       case (key, _, value) => q"($key, $value)"
     }
-    newRecord( tq"AnyRef{..$defs}", q"Map(..$data)" )
+    newRecord( tq"AnyRef{..$defs}", q"Map[String,Any](..$data)" )
   }
 
   protected def selectHelper(selectedKeys: Seq[String]) = {
@@ -332,7 +332,7 @@ trait RecordMacroHelpers extends MacroHelpers{
     val defs   = selectedKeys zip selectedKeys.map(allTypesByKey) map defTree.tupled
     val values = selectedKeys map (key => (key,q"$prefixTree.values($key)")) map pairTree.tupled
 
-    newRecord( tq"AnyRef{..$defs}", q"Map(..$values)" )
+    newRecord( tq"AnyRef{..$defs}", q"Map[String,Any](..$values)" )
   }
 
   def applyMacro[K](method: Tree)(struct: Tree) = apply[K](struct)
@@ -370,7 +370,7 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
       case (k,t) => q"""$k -> (json \ $k).as[$t]"""
     }
 
-    val r = newRecord(TypeTree(T), q"Map(..$fields)")
+    val r = newRecord(TypeTree(T), q"Map[String,Any](..$fields)")
     q"new Reads[Record[$T]]{ def reads(json: JsValue) = JsSuccess($r) }"
   }
 
@@ -398,7 +398,7 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
       case Literal(Constant("copy")) =>
       case _ => error(s"no method found ${constantString(method)}")
     }*/
-    newRecord(typeTree[T], q"$prefixTree.record.values ++ Map(..$keyValues)")
+    newRecord(typeTree[T], q"$prefixTree.record.values ++ Map[String,Any](..$keyValues)")
   }
 
   def to[K:c.WeakTypeTag] = {
@@ -590,7 +590,7 @@ trait RecordWhiteboxMacrosTrait extends RecordMacroHelpers{
 
         val defs = fieldsTypes map defTree.tupled
 
-        newRecord(tq"{..$defs}", q"Map(..$keyValues)")
+        newRecord(tq"{..$defs}", q"Map[String,Any](..$keyValues)")
 //      case _ => error("Can't convert to Record: "+obj.toString);???
       case (obj,tpe) if isStructuralRefinementType(tpe) => apply(obj)
       case (obj,tpe) if isRecord(tpe) => obj

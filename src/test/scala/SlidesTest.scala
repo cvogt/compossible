@@ -331,16 +331,34 @@ val r2 = r.select[{def name: String}]
 r.name
     };{
 import play.api.libs.json._
-val jsonString = """{"name": "Chris", "age": 99}"""
+val jsonString = """
+{
+    "name": "Chris",
+    "addresses": [
+      {"city": "New York", "zip": 10005, "street": "48 Wall St"},
+      {"city": "Lausanne", "zip": 1015, "street": "station 14"}
+    ],
+    "age": 99,
+    "SSN": "55555-555-5555"
+}"""
 val r = Json.fromJson[Record[{
   def name: String
   def age: Int
+  def addresses: List[Record[{
+    def street: String
+    def zip: Int
+  }]]
 }]]( Json.parse(jsonString) ).get
 
 val x = r.age
 val y = r.name
 assert(99 === (x:Int))
 assert("Chris" === (y:String))
+val a1 = r.addresses(0)
+val a2 = r.addresses(1)
+assert(10005 == a1.zip)
+assert(1015 == a2.zip)
+//assert(Record(name="Chris") == Record(name="Chris"))
     };{
 /*
 // before

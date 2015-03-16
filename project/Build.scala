@@ -28,7 +28,7 @@ object MyBuild extends Build{
         "-language:postfixOps",
         "-language:dynamics"
       ),
-      //scalacOptions ++= Seq("-Xprint:typer"),
+      scalacOptions ++= Seq("-Xprint:typer"),
       //testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oFD"),
       parallelExecution := false, // <- until TMap thread-safety issues are resolved
       version := "0.2-SNAPSHOT",
