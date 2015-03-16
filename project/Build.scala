@@ -14,6 +14,8 @@ object MyBuild extends Build{
         "org.scalatest" %% "scalatest" % "2.2.4" % "test",
         "com.typesafe.play" %% "play-json" % "2.4.0-M1"
       ),
+      libraryDependencies += "com.lihaoyi" %% "ammonite-repl" % "0.2.7" % "test",
+      initialCommands in console := "ammonite.repl.Repl.main(null)",
       resolvers ++= Seq(
         Resolver.sonatypeRepo("releases"),
         Resolver.sonatypeRepo("snapshots")
@@ -28,7 +30,7 @@ object MyBuild extends Build{
         "-language:postfixOps",
         "-language:dynamics"
       ),
-      scalacOptions ++= Seq("-Xprint:typer"),
+      //scalacOptions ++= Seq("-Xprint:typer"),
       //testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oFD"),
       parallelExecution := false, // <- until TMap thread-safety issues are resolved
       version := "0.2-SNAPSHOT",

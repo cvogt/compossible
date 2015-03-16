@@ -68,6 +68,7 @@ class syntaxMacros(val c: WhiteboxContext) extends RecordWhiteboxMacrosTrait{
 
   def nameImpl = Literal(Constant("Chris"))
   def fooImpl = q"""new {
+    import scala.language.experimental.macros
     def name: String = macro $pkg.syntaxMacros.nameImpl
   }"""
 
@@ -364,6 +365,7 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
   def lookupMacro123[T:c.WeakTypeTag] = {
     val record = prefixTree match {
       case q"""new{
+        import scala.language.experimental.macros
         private val __record = $record
         ..$accessors
       }""" => record
@@ -477,6 +479,7 @@ trait RecordWhiteboxMacrosTrait extends RecordMacroHelpers{
         key, q"_root_.org.cvogt.compossible.RecordBlackboxMacros.lookupMacro123[$tpe]", tpe)
     }
     q"""new{
+      import scala.language.experimental.macros
       private val __record = $record
       ..$accessors
     }"""
