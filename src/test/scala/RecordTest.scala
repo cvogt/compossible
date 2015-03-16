@@ -1,6 +1,5 @@
 package org.cvogt.test.records
 
-import org.scalautils.TypeCheckedTripleEquals._
 import org.scalatest.FunSuite
 import org.cvogt.compossible._
 import org.cvogt.compossible.{Record => R}

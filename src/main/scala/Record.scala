@@ -173,7 +173,7 @@ class syntaxMacros(val c: WhiteboxContext) extends RecordWhiteboxMacrosTrait{
 //trait Structural
 /** [blackbox] Create a record from a structural refinement type (new { ... })*/
 object Record extends Dynamic{
-  implicit def toAnonymousClass[T](record: Record[T]): T = macro RecordWhiteboxMacros.toAnonymousClass[T]  
+  implicit def materialize[T](record: Record[T]): T = macro RecordWhiteboxMacros.materialize[T]  
   
   /** [whitebox] Create a record from a case class */
   def from(obj: Any): Any//Record[AnyRef]
@@ -472,7 +472,7 @@ trait RecordWhiteboxMacrosTrait extends RecordMacroHelpers{
   }
 
   /** create a new structural refinement type for the data of the record */
-  def toAnonymousClass[T:c.WeakTypeTag](record: Tree): Tree = {
+  def materialize[T:c.WeakTypeTag](record: Tree): Tree = {
     //q"org.cvogt.compossible.RecordLookup($record)"
     val accessors = extractTypesByKey(firstTypeArg(record)).map{
       case(key, tpe) => defMacroAssignTree(
@@ -520,7 +520,7 @@ trait RecordWhiteboxMacrosTrait extends RecordMacroHelpers{
     = {
       val keyString = constantString(key)
       val ident = TermName(keyString)
-      q"_root_.org.cvogt.compossible.Record.toAnonymousClass($prefixTree).$ident"
+      q"_root_.org.cvogt.compossible.Record.materialize($prefixTree).$ident"
       /*
       val keyString = constantString(key)
       val valueType = 
