@@ -19,7 +19,7 @@ object Foo{
 
   val res = personWithCar.car.owner  
 }
-
+ 
 class RecordTest extends FunSuite {
   test("basic") {
     ;{    

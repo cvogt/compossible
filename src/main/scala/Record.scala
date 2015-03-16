@@ -361,6 +361,18 @@ trait RecordMacroHelpers extends MacroHelpers{
 class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
   import c.universe._
 
+  def lookupMacro123[T:c.WeakTypeTag] = {
+    val record = prefixTree match {
+      case q"""new{
+        private val __record = $record
+        ..$accessors
+      }""" => record
+    }
+    val key = c.macroApplication.symbol.name.toString
+    val tpe = c.macroApplication.symbol.asMethod.returnType
+    q"$record.values(${constant(key)}).asInstanceOf[$tpe]"
+  }
+
   def recordFormat[T:c.WeakTypeTag](x: Tree) = {
     //println(c.weakTypeOf[T])
     val T = c.weakTypeOf[T]
@@ -461,9 +473,13 @@ trait RecordWhiteboxMacrosTrait extends RecordMacroHelpers{
   def toAnonymousClass[T:c.WeakTypeTag](record: Tree): Tree = {
     //q"org.cvogt.compossible.RecordLookup($record)"
     val accessors = extractTypesByKey(firstTypeArg(record)).map{
-      case(key, tpe) => defAssignTree(key, lookupTree(record, key, tpe))
+      case(key, tpe) => defMacroAssignTree(
+        key, q"_root_.org.cvogt.compossible.RecordBlackboxMacros.lookupMacro123[$tpe]", tpe)
     }
-    q"new{..$accessors}"
+    q"""new{
+      private val __record = $record
+      ..$accessors
+    }"""
   }
 
   def ++[T:c.WeakTypeTag,O:c.WeakTypeTag](other: Tree)(evidence$5: Tree) = {
