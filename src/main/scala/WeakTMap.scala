@@ -19,7 +19,7 @@ class WeakTMap[+T] private(private val values: List[(Type, Any)]) extends AnyVal
   def ++[S](other: WeakTMap[S])
     = new WeakTMap[T with S](other.values ++ values)
 
-  override def toString = "WeakTMap("+values.toString+")"
+  override def toString = "WeakTMap("+values.map{ case (key,value) => key + " -> "+value}.mkString(", ")+")" // FIXME
 }
 
 object WeakTMap {

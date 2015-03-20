@@ -71,12 +71,12 @@ class WeakTMapTest extends FunSuite{
       def map[Q](g: R => Q) = (t: WeakTMap[T]) => g(f(t))
       def flatMap[S,Q](g: R => (WeakTMap[S] => Q)) = (ts: WeakTMap[T with S]) => g(f(ts))(ts)
     }
-    def use[T:TypeTag,R](f: T => R): WeakTMap[T] => R = (c: WeakTMap[T]) => f(c[T])
+    def using[T:TypeTag,R](f: T => R): WeakTMap[T] => R = (c: WeakTMap[T]) => f(c[T])
 
     val f
       = for{
-        _ <- use{db: Database => db.query}
-        _ <- use{logger: Logger => logger.log}
+        _ <- using{db: Database => db.query}
+        _ <- using{logger: Logger => logger.log}
       } yield ()
 
     val f2: WeakTMap[Database with Logger] => Unit = f

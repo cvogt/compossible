@@ -7,14 +7,21 @@ import scala.reflect.runtime.{universe => refl}
 import org.cvogt.scala.constraint._
 import org.cvogt.scala.:=
 
+object `package`{
+  type ++[A,B] = A with B
+}
 final class Struct[T]
 object Struct{
   implicit def isStruct[T]: Struct[T] = macro RecordBlackboxMacros.isStructImpl[T]
 }
+final class CaseClass[T]
+object CaseClass{
+  implicit def isCaseClass[T]: CaseClass[T] = macro RecordBlackboxMacros.isCaseClassImpl[T]
+}
 // Extensible records for Scala based on intersection types
 
 // TODO: implicit conversion to structural type with macro members for reflection free access
-object syntax{
+object conversions{
   import scala.language.implicitConversions
 
   /** Validates if type is convertable */
@@ -105,7 +112,7 @@ class syntaxMacros(val c: WhiteboxContext) extends RecordWhiteboxMacrosTrait{
         assert(acceptableReturnType(returnType))
 //        println(returnType.getClass)
       //println("returnType: "+returnType)
-      q"new $pkg.syntax.InferReturnType[$returnType]"
+      q"new $pkg.conversions.InferReturnType[$returnType]"
     } catch {
       case scala.util.control.NonFatal(e) =>
         //e.printStackTrace(System.out)
@@ -127,14 +134,14 @@ class syntaxMacros(val c: WhiteboxContext) extends RecordWhiteboxMacrosTrait{
   def assertConvertibleFromRecord[T:c.WeakTypeTag] = {
     val T = tpe[T]
     //println(T)
-    q"""new $pkg.syntax.ConvertibleFromRecord[$T]"""
+    q"""new $pkg.conversions.ConvertibleFromRecord[$T]"""
   }
   def assertConvertibleToRecord[T:c.WeakTypeTag] = {
     //println(">")
     val T = tpe[T]
     if(!isConvertibleToRecord[T])
       error(s"$T can't be converted to Record")
-    val t = q"""new $pkg.syntax.ConvertibleToRecord[$T]"""
+    val t = q"""new $pkg.conversions.ConvertibleToRecord[$T]"""
     //println("<")
     t
   }
@@ -145,7 +152,7 @@ class syntaxMacros(val c: WhiteboxContext) extends RecordWhiteboxMacrosTrait{
   }
   def toRecord = {
     prefixTree match {
-      case q"$pkg.syntax.ToRecord($obj)" => from(obj)
+      case q"$pkg.conversions.ToRecord($obj)" => from(obj)
       //case other => error(other.toString);???
     }
   }
@@ -211,7 +218,7 @@ object Record extends Dynamic{
   }
 
   implicit class RecordMethods[+T <: AnyRef](val record: Record[T]){
-    def ++[O:syntax.ConvertibleToRecord](other: O): Record[AnyRef]
+    def ++[O:conversions.ConvertibleToRecord](other: O): Record[AnyRef]
       = macro RecordWhiteboxMacros.++[T,O]
 
     val values = record.values
@@ -258,7 +265,7 @@ class Record[+T <: AnyRef](
   val values: Map[String, Any]
 ) extends /*AnyVal with Dynamic*/{
   outer =>
-  override def toString = "Record("+values.toString+")"
+  override def toString = "Record("+values.map{ case (key,value) => key + " = "+value}.mkString(", ")+")" // FIXME
 
   def selectDynamic[K <: String](key: K): Any
     = macro RecordWhiteboxMacros.lookup[K]
@@ -397,6 +404,15 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
     q"new _root_.org.cvogt.compossible.Struct[$T]"
   }
 
+  def isCaseClassImpl[T:c.WeakTypeTag] = {
+    val T = c.weakTypeOf[T]
+    //println(T)
+    //println(isStructuralRefinementType(T))
+    if(!isCaseClass(T))
+      error(s"not a case class: $T")
+    q"new _root_.org.cvogt.compossible.CaseClass[$T]"
+  }
+
   def select[K:c.WeakTypeTag] = {
     val allTypesByKey      = extractTypesByKey(firstTypeArg(prefixTree))
     val selectedTypesByKey = extractTypesByKey(tpe[K])
@@ -421,7 +437,10 @@ class RecordBlackboxMacros(val c: BlackboxContext) extends RecordMacroHelpers{
     tpe[K] match {
       case tpe if isCaseClass(tpe) =>
         val accessors = caseClassFieldsTypes(tpe).map(_._1).map{
-          case key => lookupTree(prefixTree,key,typesByKey(key))
+          case key =>
+            if(!typesByKey.contains(key))
+              error(s"""Expected field "$key" not found in """+typesByKey.keys)
+            lookupTree(prefixTree,key,typesByKey(key))
         }
         q"""new $tpe(..$accessors)"""
     }

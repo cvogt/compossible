@@ -279,7 +279,7 @@ val r = Record(age=99, name="Chris")
 
 r.to[Person]
     };{
-import org.cvogt.compossible.syntax._
+import org.cvogt.compossible.conversions._
 case class Person(name: String)
 val p: Person = Record.named(name="Chris")
 val r = p & Record(new {def age=99})
@@ -288,7 +288,7 @@ val r = p & Record(new {def age=99})
 r.name
 r.age
     };{
-import org.cvogt.compossible.syntax._
+import org.cvogt.compossible.conversions._
 case class Person(name: String)
 case class AgedPerson(
   name: String, age: Int)

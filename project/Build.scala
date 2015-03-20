@@ -14,7 +14,7 @@ object MyBuild extends Build{
         "org.scalatest" %% "scalatest" % "2.2.4" % "test",
         "com.typesafe.play" %% "play-json" % "2.4.0-M1"
       ),
-      libraryDependencies += "com.lihaoyi" %% "ammonite-repl" % "0.2.7" % "test",
+      libraryDependencies += "com.lihaoyi" %% "ammonite-repl" % "0.2.7",
       initialCommands in console := "ammonite.repl.Repl.main(null)",
       resolvers ++= Seq(
         Resolver.sonatypeRepo("releases"),

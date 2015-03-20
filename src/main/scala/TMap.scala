@@ -1,6 +1,6 @@
 package org.cvogt.compossible
 import scala.language.experimental.macros
-import scala.reflect.macros.blackbox.{Context => BlackboxContext}
+import scala.reflect.macros.blackbox
 
 import org.cvogt.scala.constraint.set._
 import org.cvogt.scala.constraint._
@@ -38,7 +38,7 @@ object TypeHashCode{
   implicit def typeHashCode[T]: TypeHashCode[T] = macro TMapMacros.typeHashCode[T]
 }*/
 
-class TMapMacros(val c: BlackboxContext) extends RecordMacroHelpers{
+class TMapMacros(val c: blackbox.Context) extends RecordMacroHelpers{
   import c.universe._
   import c.{WeakTypeTag,weakTypeTag}
   def lookup[E:c.WeakTypeTag](ev: Tree, ev2: Tree) = {

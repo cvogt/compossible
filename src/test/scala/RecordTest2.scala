@@ -11,7 +11,7 @@ class RecordTest2 extends FunSuite {
   test("basic") {
     {
       val p = new Person("Chris", 99)
-      import org.cvogt.compossible.syntax._
+      import org.cvogt.compossible.conversions._
       {
         val r = R.from(p)      
         assert("Chris" === r.name)
