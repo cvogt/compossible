@@ -7,11 +7,11 @@ object MyBuild extends Build{
   lazy val aRootProject = Project(id = "compossible", base = file("."),
     settings = Seq(
       name := "compossible",
-      scalaVersion := "2.11.5",
+      scalaVersion := "2.11.7",
       description := "Composable Records and type-indexed Maps for Scala",
       libraryDependencies ++= Seq(
-        "org.scalatest" %% "scalatest" % "2.2.4" % "test",
-        "org.scalautils" %% "scalautils" % "2.1.5" % "test"
+        "org.scalatest" %% "scalatest" % "2.2.5" % "test",
+        "org.scalautils" %% "scalautils" % "2.1.7" % "test"
       ),
       libraryDependencies <+= scalaVersion(
         "org.scala-lang" % "scala-reflect" % _ //% "optional"
